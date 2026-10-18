@@ -25,7 +25,7 @@ ENVS = [
 PUBLIC_ENV = "production"
 # Environments built as a responsive promo app (one ad sized to the viewer's device,
 # plus a zip of the files) instead of a gallery of every format.
-APP_ENVS = {"development"}
+APP_ENVS = {"production", "review", "development"}
 
 # Which format each breakpoint shows in app mode, widest first.
 APP_SOURCES = [("(min-width:900px)", "landscape"), ("(min-width:560px)", "social")]
@@ -343,8 +343,10 @@ def main():
     src_ads = os.path.join(ROOT, PUBLIC_ENV, "ads")
     if os.path.isdir(src_ads):
         shutil.copytree(src_ads, os.path.join(OUT, "ads"))
-    emit(root_cars, OUT, "", "../")
-    print(f"  root: {len(root_cars)} vehicles (from {PUBLIC_ENV})")
+    emit(root_cars, OUT, "", "../",
+         app=PUBLIC_ENV in APP_ENVS, env_root=os.path.join(ROOT, PUBLIC_ENV))
+    print(f"  root: {len(root_cars)} vehicles (from {PUBLIC_ENV})"
+          f"{' (responsive app)' if PUBLIC_ENV in APP_ENVS else ''}")
 
     # Each environment keeps its own URL so direct links stay valid.
     for key, _ in ENVS:

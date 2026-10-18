@@ -27,8 +27,8 @@ and **omarranwar58@gmail.com**.
   vehicle, and a page per vehicle *per format* (`cars/<id>-<format>.html`).
 - Clicking an ad opens its format page — breadcrumbed, with JPG **and** SVG download buttons —
   rather than dumping the raw JPG into a bare tab.
-- **App mode** (`APP_ENVS` in `build.py`, currently just `development/`) builds a promo webapp
-  instead of a format gallery: one vehicle page showing a single ad chosen by viewport via
+- **App mode** (`APP_ENVS` in `build.py` — currently every environment, and the root follows
+  `PUBLIC_ENV`) builds a promo webapp instead of a format gallery: one vehicle page showing a single ad chosen by viewport via
   `<picture>` (landscape ≥900px, social ≥560px, phone below — see `APP_SOURCES`), so a phone
   fetches only the phone ad. No per-format pages; the board's cards say *View*, not *Open*.
   Each vehicle also gets `cars/<id>-ads.zip`, built by `write_zip()`, holding its JPGs and SVGs.
