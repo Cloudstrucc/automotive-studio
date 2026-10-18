@@ -9,7 +9,7 @@ deleting an image file is all it takes. No code changes needed for CRUD.
 Run locally:  python build.py        -> outputs the site into ./_site
 In CI:        the GitHub Actions workflow runs this, then deploys ./_site.
 """
-import json, os, shutil, html, re
+import json, os, shutil, html, re, zipfile
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +23,13 @@ ENVS = [
 ]
 # Which environment the site root mirrors.
 PUBLIC_ENV = "production"
+# Environments built as a responsive promo app (one ad sized to the viewer's device,
+# plus a zip of the files) instead of a gallery of every format.
+APP_ENVS = {"development"}
+
+# Which format each breakpoint shows in app mode, widest first.
+APP_SOURCES = [("(min-width:900px)", "landscape"), ("(min-width:560px)", "social")]
+APP_FALLBACK = "phone"
 FORMAT_LABELS = {          # known formats, in display order, with pixel sizes
     "social":    ("Social",    "1080 × 1350 · 4:5 feed"),
     "phone":     ("Phone",     "1080 × 2340 · 9:19.5 story"),
@@ -110,6 +117,8 @@ EMAIL      = "omarranwar58@gmail.com"
 
 LEDE = ("Every card is a complete ad — price, mileage and contact are printed on the image. "
         "Open a vehicle to preview each format and download the files.")
+APP_LEDE = ("Every card is a complete ad — price, mileage and contact are printed on the image. "
+            "Open a vehicle to see it sized for the screen you are on, and download the files.")
 
 def contact(small=False):
     """Phone + email, shown on the lineup, each vehicle page and each format view."""
@@ -162,7 +171,7 @@ def dl_links(car, f, prefix):
     return out
 
 # ---------- pages ----------
-def build_board(cars, css):
+def build_board(cars, css, app=False):
     """The lineup. Lives at the site root and at each environment folder."""
     if not cars:
         board = ('<div class="empty">No vehicles yet. Add image files to <code>ads/jpg/</code> '
@@ -174,10 +183,11 @@ def build_board(cars, css):
             sub = esc(c["subtitle"])
             if c["price"]:
                 sub = f'{sub} · <span class="price">{esc(c["price"])}</span>' if sub else f'<span class="price">{esc(c["price"])}</span>'
-            links = f'<a class="open" href="cars/{esc(c["slug"])}.html">Open</a>'
-            for f in fmt_list(c):
-                lbl = FORMAT_LABELS.get(f, (f.title(),))[0]
-                links += f'<a href="cars/{esc(c["slug"])}-{esc(f)}.html">{esc(lbl)}</a>'
+            links = f'<a class="open" href="cars/{esc(c["slug"])}.html">{"View" if app else "Open"}</a>'
+            if not app:   # app mode has no per-format pages to link to
+                for f in fmt_list(c):
+                    lbl = FORMAT_LABELS.get(f, (f.title(),))[0]
+                    links += f'<a href="cars/{esc(c["slug"])}-{esc(f)}.html">{esc(lbl)}</a>'
             items += f"""
         <article class="card">
           <a class="thumb" href="cars/{esc(c["slug"])}.html"><img loading="lazy" src="{esc(hero_src(c))}" alt="{esc(c["name"])} ad"></a>
@@ -193,7 +203,7 @@ def build_board(cars, css):
     <header class="hero">
       <p class="eyebrow">Autoline · Pre-Owned</p>
       <h1>The Lineup</h1>
-      <p class="lede">{LEDE}</p>
+      <p class="lede">{APP_LEDE if app else LEDE}</p>
       {contact()}
     </header>
     {board}
@@ -260,15 +270,63 @@ def build_format_page(car, f, css):
   </div>"""
     return page(f"{car['year']} {car['name']} {lbl} — Autoline".strip(), body, css, "../index.html")
 
+def ad_picture(car, prefix, cls=""):
+    """One <picture> that lets the browser fetch only the format its viewport needs."""
+    srcs = ""
+    for media, f in APP_SOURCES:
+        if f in car["jpg"]:
+            srcs += f'<source media="{media}" srcset="{prefix}{esc(car["jpg"][f])}">'
+    fb = car["jpg"].get(APP_FALLBACK) or hero_src(car)
+    alt = esc(f'{car["year"]} {car["name"]}'.strip())
+    return (f'<picture class="{cls}">{srcs}'
+            f'<img src="{prefix}{esc(fb)}" alt="{alt} ad" loading="eager"></picture>')
+
+def build_app_car_page(car, css):
+    """Promo view: the ad at the viewer's own device size, plus one zip of every file."""
+    title = esc(f'{car["year"]} {car["name"]}'.strip())
+    sub = esc(" · ".join(x for x in (car["subtitle"], car["price"]) if x))
+    n = sum(len(car[k]) for k in ("jpg", "svg"))
+    body = f"""
+  <div class="wrap">
+    {crumbs(("The Lineup", "../index.html"), (f"{car['year']} {car['name']}".strip(), None))}
+    <div class="view-head">
+      <div><h1>{title}</h1>
+        <p class="lede" style="margin-top:6px">{sub}</p></div>
+      <div class="view-dl"><a class="dl-zip" href="{esc(car['slug'])}-ads.zip" download>Download images ({n} files)</a></div>
+    </div>
+    <div class="stage">{ad_picture(car, "../")}</div>
+    {contact()}
+    <footer><a class="brand" style="font-size:14px" href="../index.html"><i></i>Back to the lineup</a>
+      <span>Velocity direction</span></footer>
+  </div>"""
+    return page(f"{car['year']} {car['name']} — Autoline".strip(), body, css, "../index.html")
+
+def write_zip(car, env_root, dest):
+    """Bundle every file for one vehicle so the promo page can hand over all of them at once."""
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
+        for kind in ("jpg", "svg"):
+            for f, rel in sorted(car[kind].items()):
+                src = os.path.join(env_root, rel)
+                if os.path.isfile(src):
+                    z.write(src, os.path.join(car["slug"], os.path.basename(rel)))
+
 # ---------- emit ----------
-def emit(cars, out_dir, css_board, css_car):
-    """Write a complete, self-contained lineup into out_dir."""
-    os.makedirs(os.path.join(out_dir, "cars"), exist_ok=True)
-    open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8").write(build_board(cars, css_board))
+def emit(cars, out_dir, css_board, css_car, app=False, env_root=None):
+    """Write a complete, self-contained lineup into out_dir.
+
+    app=True builds the promotional variant: one responsive ad per vehicle and a zip
+    of its files, instead of a page per format."""
+    cars_dir = os.path.join(out_dir, "cars")
+    os.makedirs(cars_dir, exist_ok=True)
+    open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8").write(build_board(cars, css_board, app))
     for c in cars:
-        open(os.path.join(out_dir, "cars", f"{c['slug']}.html"), "w", encoding="utf-8").write(build_car_page(c, css_car))
-        for f in fmt_list(c):
-            open(os.path.join(out_dir, "cars", f"{c['slug']}-{f}.html"), "w", encoding="utf-8").write(build_format_page(c, f, css_car))
+        if app:
+            open(os.path.join(cars_dir, f"{c['slug']}.html"), "w", encoding="utf-8").write(build_app_car_page(c, css_car))
+            write_zip(c, env_root, os.path.join(cars_dir, f"{c['slug']}-ads.zip"))
+        else:
+            open(os.path.join(cars_dir, f"{c['slug']}.html"), "w", encoding="utf-8").write(build_car_page(c, css_car))
+            for f in fmt_list(c):
+                open(os.path.join(cars_dir, f"{c['slug']}-{f}.html"), "w", encoding="utf-8").write(build_format_page(c, f, css_car))
 
 def main():
     if os.path.isdir(OUT):
@@ -296,8 +354,8 @@ def main():
         src = os.path.join(ROOT, key, "ads")
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(env_out, "ads"))
-        emit(cars, env_out, "../", "../../")
-        print(f"  {key}: {len(cars)} vehicles")
+        emit(cars, env_out, "../", "../../", app=key in APP_ENVS, env_root=os.path.join(ROOT, key))
+        print(f"  {key}: {len(cars)} vehicles{' (responsive app)' if key in APP_ENVS else ''}")
 
     print(f"Built -> {OUT}")
 

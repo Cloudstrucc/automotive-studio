@@ -142,3 +142,13 @@ footer{margin:64px 0 50px;padding-top:22px;border-top:1px solid var(--line);colo
 /* year + price on the lineup cards */
 .card .yr{color:var(--acc);font-family:var(--cond);font-weight:800;letter-spacing:.02em}
 .card .price{color:var(--ink);font-weight:700}
+
+/* promo app: one ad, sized to the viewer's own device */
+.stage{margin:22px 0 0;background:#05070b;border:1px solid var(--line);border-radius:16px;
+  padding:clamp(10px,2.2vw,22px);display:flex;align-items:center;justify-content:center}
+.stage picture{display:block;width:100%}
+.stage img{display:block;width:100%;height:auto;border-radius:8px}
+/* the tall phone ad would otherwise run far past the fold on a wide screen */
+@media(max-width:559px){.stage img{max-height:none}}
+.view-dl a.dl-zip{background:var(--acc);color:var(--acc-ink)}
+.view-dl a.dl-zip:hover{filter:brightness(1.07)}
