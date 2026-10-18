@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 .claude/launch.json
 tools/.venv/
+admin/worker/.dev.vars
+admin/worker/.wrangler/
+node_modules/

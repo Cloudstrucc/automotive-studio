@@ -1,3 +1,10 @@
+> **SUPERSEDED IN ITS CENTRAL ASSUMPTION.** A published Artifact runs under
+> `connect-src 'self' <its own frame>`, so it can never call an external endpoint —
+> confirmed from the browser's own CSP error. The admin now lives in
+> [`admin/worker/`](../admin/worker/), serving its page from the same origin as its
+> API. The design below — tiles, plan-then-confirm, spec slots, the state machine —
+> carries over unchanged; only the hosting does not.
+
 # Option B — the admin as a published Artifact
 
 Status: **design for review, nothing built.** Written 18 Oct 2026.

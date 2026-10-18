@@ -168,9 +168,7 @@ const S = {
   view:'workspace', cat:null, action:'add',
   text:'', photos:[],           // {id,url,name}
   plan:null, busy:false, error:null,
-  caps:{ sample:null, assets:null, db:null, user:null, downloads:null },
-  ready:false, me:null, canEdit:false, drafts:[],
-  conn:null,                    // {endpoint, key} from the shared config doc
+  ready:true, drafts:[],
   publishing:false, published:null,
 };
 
@@ -184,84 +182,40 @@ function go(v, slug){
   S.view = v; S.error = null; render();
 }
 
-/* ---------- capability bootstrap ----------
-   Capabilities resolve after the first script run and may never resolve. The page is
-   built to work without them, then lights features up as they arrive. */
-async function boot(){
-  if (!window.claude || typeof claude.use !== 'function'){ S.ready=true; return paint(); }
-  const names = ['sample','assets','db','user','downloads'];
-  await Promise.all(names.map(async n => {
-    try { S.caps[n] = await claude.use(n); } catch { S.caps[n] = null; }
-  }));
-  if (S.caps.user){
-    try {
-      S.me = await S.caps.user.me();
-      S.canEdit = S.caps.user.canEdit?.() ?? false;
-    } catch {}
-  }
-  S.ready = true;
+/* Served same-origin by the Worker, so there is no capability handshake and no
+   sandbox: /api/plan and /write are ordinary fetches to our own origin. */
+function boot(){
   paint();
   loadDrafts();
-  loadConn();
 }
 
 function paint(){
-  const c = S.caps, chip = $('#capChip'), who = $('#whoChip');
-  const missing = [];
-  if (!c.sample) missing.push('assistant');
-  if (!c.assets) missing.push('uploads');
-  if (!c.db)     missing.push('saving');
-  if (missing.length){ chip.className='chip warn'; chip.textContent='Limited: no ' + missing.join(', '); }
-  else if (!S.conn){ chip.className='chip warn'; chip.textContent='Publishing not set up'; }
-  else { chip.className='chip ok'; chip.textContent='Ready to publish'; }
-  who.textContent = S.me?.name || S.me?.email || 'signed in';
-  who.classList.toggle('hide', !S.me);
+  const chip = $('#capChip'), who = $('#whoChip');
+  chip.className = 'chip ok';
+  chip.textContent = 'Ready to publish';
+  who.classList.add('hide');
   render();
 }
 
-async function loadDrafts(){
-  if (!S.caps.db) return;
+const DRAFT_KEY = 'autoline.drafts';
+function loadDrafts(){
+  try { S.drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '[]'); }
+  catch { S.drafts = []; }
+  render();
+}
+function storeDraft(entry){
   try {
-    const snap = await S.caps.db.collection('drafts').limit(20).get();
-    S.drafts = (snap?.docs || []).map(d => ({ id:d.id, ...(d.data?.() ?? d.data) }));
-    render();
+    const kept = S.drafts.filter(d => d.id !== entry.id);
+    S.drafts = [entry, ...kept].slice(0, 20);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(S.drafts));
   } catch {}
 }
 
-/* The write endpoint's URL and key live in the artifact's database, not in the page
-   source -- this repository is public. Everyone the artifact is shared with can read
-   them, which is the same set of people already trusted to publish. */
-async function loadConn(){
-  if (!S.caps.db) return;
-  try {
-    const doc = await S.caps.db.doc('config/write').get();
-    const d = doc?.data?.() ?? doc?.data ?? null;
-    if (d?.endpoint && d?.key) S.conn = { endpoint:d.endpoint, key:d.key };
-    paint();
-  } catch {}
-}
-
-async function saveConn(endpoint, key){
-  if (!S.caps.db){ S.error='Saving is unavailable in this view.'; return render(); }
-  try {
-    await S.caps.db.doc('config/write').set({
-      endpoint: endpoint.trim().replace(/\/$/,''),
-      key: key.trim(),
-      savedBy: S.me?.email || 'unknown',
-      savedAt: new Date().toISOString(),
-    });
-    await loadConn();
-    S.error = null; go('workspace');
-  } catch (e) {
-    S.error = 'Could not save the connection: ' + (e?.message || 'write refused');
-    render();
-  }
-}
-
-/* ---------- image handling ----------
-   Resized before upload: the ad generator composites into at most 1920px, so a phone's
-   12MP original is wasted bytes either way, and a smaller file keeps the eventual
-   repository write comfortably inside any payload ceiling. */
+/* ---------- photos ----------
+   Resized before anything else: the ad generator composites into at most 1920px, so a
+   phone's 12MP original is wasted bytes, and a smaller file keeps the eventual commit
+   comfortably inside the endpoint's payload ceiling. Bytes stay in the page until
+   publish -- there is no asset store to round-trip through any more. */
 const MAX_EDGE = 1600;
 function resize(file){
   return new Promise((res, rej) => {
@@ -281,70 +235,54 @@ function resize(file){
   });
 }
 
+function blobToB64(blob){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = () => rej(new Error('could not encode photo'));
+    r.readAsDataURL(blob);
+  });
+}
+
 async function addPhotos(files){
-  if (!S.caps.assets){ S.error='Uploads are unavailable in this view.'; return render(); }
   S.busy = true; S.error = null; render();
   for (const f of files){
     try {
       const blob = await resize(f);
-      const a = await S.caps.assets.upload(blob);
-      S.photos.push({ id:a.id, url:a.url, name:f.name });
+      S.photos.push({
+        name: f.name,
+        url: URL.createObjectURL(blob),
+        b64: await blobToB64(blob),
+      });
     } catch (e) {
-      S.error = 'Could not add ' + f.name + ': ' + (e?.message || 'upload failed');
+      S.error = 'Could not add ' + f.name + ': ' + (e?.message || 'failed');
     }
   }
   S.busy = false; render();
 }
 
 /* ---------- the assistant ----------
-   The model never writes anything. It returns a plan object which the page validates,
-   renders as an editable form, and only acts on once the user confirms. */
-function validatePlan(p, cat){
-  if (!p || typeof p !== 'object') throw new Error('no plan returned');
-  if (typeof p.summary !== 'string' || !p.summary.trim()) throw new Error('plan had no summary');
-  const f = p.fields;
-  if (!f || typeof f !== 'object') throw new Error('plan had no fields');
-  const str = v => (v == null || v === '') ? null : String(v);
-  const specs = Array.isArray(f.specs) ? f.specs : [];
-  return {
-    summary: p.summary.trim(),
-    fields: {
-      title: str(f.title), subtitle: str(f.subtitle), year: str(f.year),
-      price: str(f.price) ? String(f.price).replace(/[^0-9,]/g,'') : null,
-      eyebrow: str(f.eyebrow),
-      // slots are fixed by the catalogue; the model may fill values, never add columns
-      specs: cat.specs.map((label, i) => ({
-        label: str(specs[i]?.label) || label,
-        value: str(specs[i]?.value),
-      })),
-    },
-  };
-}
-
+   The model never writes anything. The Worker calls Anthropic with its own key,
+   validates the shape, and returns a plan the page renders as an editable form. */
 async function askForPlan(){
-  const cat = S.cat;
-  if (!S.caps.sample){ S.error='The assistant is unavailable in this view.'; return render(); }
   if (!S.text.trim()){ S.error='Describe the item first.'; return render(); }
   S.busy = true; S.error = null; render();
   try {
-    const prompt =
-      `You turn a short description into one catalogue item for a vehicle sales site.\n` +
-      `Catalogue: ${cat.label}. Its three spec slots are: ${cat.specs.join(', ')}.\n\n` +
-      `Return ONLY JSON of this shape:\n${PLAN_SHAPE}\n\n` +
-      `Rules:\n` +
-      `- Use null for anything the description does not state. Never invent a value.\n` +
-      `- Keep the three spec slots in the order given, with those labels.\n` +
-      `- "title" is make and model without the year. "year" is four digits.\n` +
-      `- "price" is digits and commas only.\n\n` +
-      `Description:\n${S.text.trim()}`;
-    const raw = await S.caps.sample.json(prompt, { modelTier:'default' });
-    S.plan = validatePlan(raw, cat);
+    const res = await fetch('/api/plan', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({
+        description: S.text.trim(),
+        catalogue: S.cat.label,
+        slots: S.cat.specs,
+      }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.ok) throw new Error(out.error || `assistant returned ${res.status}`);
+    S.plan = out.plan;
     S.view = 'plan';
   } catch (e) {
-    const code = e?.code;
-    S.error = code === 'rate_limited' ? 'The assistant is rate limited. Try again shortly.'
-            : code === 'not_granted'  ? 'The assistant was not permitted for this page.'
-            : 'Could not read a plan from that description: ' + (e?.message || 'unknown error');
+    S.error = 'Could not read a plan from that description: ' + (e?.message || 'unknown error');
   }
   S.busy = false; render();
 }
@@ -362,58 +300,43 @@ function buildPayload(){
     eyebrow: f.eyebrow,
     specs: f.specs.filter(s => s.value),
     images: S.photos.map((p,i) => ({ file: `${slug}_${i+1}.jpg`, role: i ? 'secondary' : 'primary' })),
-    audit: { updated_by: S.me?.email || 'unknown', updated_at: new Date().toISOString() },
+    audit: { updated_at: new Date().toISOString() },
   };
   return {
     files: [
       { path:`manifests/items/${S.cat.slug}/${slug}.json`, contents: manifest },
-      ...S.photos.map((p,i) => ({ path:`source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, asset:p.id })),
+      ...S.photos.map((p,i) => ({ path:`source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, b64:p.b64 })),
     ],
     message: `Add ${f.year || ''} ${f.title || slug}`.trim(),
   };
 }
 
-async function saveDraft(){
+function saveDraft(){
   const payload = buildPayload();
-  if (S.caps.db){
-    try {
-      await S.caps.db.collection('drafts').doc(payload.files[0].contents.slug).set({
-        catalogue: S.cat.slug,
-        title: S.plan.fields.title,
-        summary: S.plan.summary,
-        payload,
-        savedAt: new Date().toISOString(),
-      });
-      await loadDrafts();
-    } catch (e) { S.error = 'Could not save the draft: ' + (e?.message || 'write refused'); }
-  }
+  storeDraft({
+    id: payload.files[0].contents.slug,
+    catalogue: S.cat.slug,
+    title: S.plan.fields.title,
+    summary: S.plan.summary,
+    savedAt: new Date().toISOString(),
+  });
   S.view = 'result'; render();
 }
 
-/* Turn the plan into a commit. Photos were uploaded to the asset store during the
-   task step; they are fetched back here as bytes so the repository gets real files
-   rather than links to an origin a CI runner cannot reach. */
+/* One same-origin POST. The Worker holds the GitHub token and enforces the path
+   allowlist; nothing secret passes through the browser. */
 async function publish(){
-  if (!S.conn){ S.error='No write endpoint configured yet.'; return render(); }
   S.publishing = true; S.error = null; render();
   try {
     const p = buildPayload();
-    const files = [];
-    for (const f of p.files){
-      if (f.contents !== undefined){
-        files.push({ path:f.path, contentsBase64: b64(JSON.stringify(f.contents, null, 2)) });
-      } else {
-        const photo = S.photos.find(x => x.id === f.asset);
-        if (!photo) throw new Error('a photo went missing before publishing');
-        const res = await fetch(photo.url);
-        if (!res.ok) throw new Error('could not read an uploaded photo');
-        files.push({ path:f.path, contentsBase64: await blobToB64(await res.blob()) });
-      }
-    }
-    const res = await fetch(S.conn.endpoint, {
+    const files = p.files.map(f => ({
+      path: f.path,
+      contentsBase64: f.b64 !== undefined ? f.b64 : b64(JSON.stringify(f.contents, null, 2)),
+    }));
+    const res = await fetch('/write', {
       method:'POST',
-      headers:{ 'content-type':'application/json', authorization:`Bearer ${S.conn.key}` },
-      body: JSON.stringify({ message:p.message, files }),
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ message: p.message, files }),
     });
     const out = await res.json().catch(() => ({}));
     if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
@@ -429,24 +352,15 @@ function b64(str){
   let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
   return btoa(bin);
 }
-function blobToB64(blob){
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result).split(',')[1]);
-    r.onerror = () => rej(new Error('could not encode photo'));
-    r.readAsDataURL(blob);
-  });
-}
 
-async function downloadPayload(){
-  const payload = buildPayload();
-  if (!S.caps.downloads){ S.error='Saving a file is unavailable in this view.'; return render(); }
-  try {
-    await S.caps.downloads.save({
-      filename: payload.files[0].contents.slug + '.json',
-      data: JSON.stringify(payload, null, 2),
-    });
-  } catch (e) { if (e?.code !== 'cancelled') S.error = 'The download was not saved.'; }
+function downloadPayload(){
+  const p = buildPayload();
+  const blob = new Blob([JSON.stringify(p, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = p.files[0].contents.slug + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 /* ---------- views ---------- */
@@ -475,12 +389,6 @@ function vWorkspace(){
           <p>Slots: ${esc(c.specs.join(' · '))}</p>
           <div class="go">Open &rarr;</div>
         </button>`).join('')}
-      <button class="tile" onclick="go('conn')">
-        <div class="mk">&#9881;</div>
-        <h2>Connection</h2>
-        <p>${S.conn ? 'Write endpoint configured' : 'Not configured &mdash; publishing is off'}</p>
-        <div class="go">Open &rarr;</div>
-      </button>
     </div>
     ${drafts}`;
 }
@@ -512,7 +420,7 @@ function vTask(){
     </div>
 
     <div class="card">
-      <div class="card-h">Photos ${S.caps.assets ? '' : '<span class="chip warn" style="margin-left:auto">unavailable</span>'}</div>
+      <div class="card-h">Photos</div>
       <div class="card-b">
         <div class="drop" onclick="$('#file').click()">
           <div style="font-weight:600">Choose photos from this device</div>
@@ -532,7 +440,7 @@ function vTask(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;margin-top:6px">
-      <button class="btn" onclick="askForPlan()" ${S.busy||!S.caps.sample?'disabled':''}>
+      <button class="btn" onclick="askForPlan()" ${S.busy?'disabled':''}>
         ${S.busy ? '<span class="spin"></span> Thinking' : 'Show me the plan'}
       </button>
       <button class="btn ghost" onclick="go('workspace')">Cancel</button>
@@ -615,18 +523,13 @@ function vResult(){
     <h1>Ready to publish</h1>
     <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
 
-    ${S.conn ? '' : `<div class="note" style="margin-top:20px">
-      <b>No write endpoint configured.</b> Add one on the Connection screen and this
-      becomes a single click. Until then, save the payload and commit it by hand.
-    </div>`}
-
-    <div class="card" style="margin-top:${S.conn?'20px':'0'}">
+    <div class="card" style="margin-top:20px">
       <div class="card-h">Files to write</div>
       <div class="card-b">
         ${p.files.map(f => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
           padding:5px 0;border-bottom:1px solid var(--line)">
           <span style="color:var(--acc)">+</span> ${esc(f.path)}
-          ${f.asset?'<span class="dim"> (photo)</span>':''}
+          ${f.b64!==undefined?'<span class="dim"> (photo)</span>':''}
         </div>`).join('')}
       </div>
     </div>
@@ -639,45 +542,13 @@ function vResult(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      ${S.conn ? `<button class="btn" onclick="publish()" ${S.publishing?'disabled':''}>
-          ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the site'}
-        </button>` : `<button class="btn" onclick="go('conn')">Set up the endpoint</button>`}
-      ${S.caps.downloads ? '<button class="btn ghost" onclick="downloadPayload()">Save the payload</button>' : ''}
+      <button class="btn" onclick="publish()" ${S.publishing?'disabled':''}>
+        ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the site'}
+      </button>
+      <button class="btn ghost" onclick="downloadPayload()">Save the payload</button>
       <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];go('workspace')">
         Discard
       </button>
-    </div>`;
-}
-
-function vConn(){
-  return `
-    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Connection</div>
-    <h1>Write endpoint</h1>
-    <p class="lede">Where this workspace sends changes. Deploy the worker in
-      <span style="font-family:ui-monospace,Menlo,monospace">admin/write-endpoint/</span>,
-      then paste its URL and key here.</p>
-
-    <div class="card" style="margin-top:20px">
-      <div class="card-b">
-        <label class="lab">Endpoint URL</label>
-        <input class="in" id="ep" placeholder="https://autoline-write.<you>.workers.dev"
-               value="${esc(S.conn?.endpoint || '')}" style="margin-bottom:15px">
-        <label class="lab">Write key</label>
-        <input class="in" id="wk" type="password" placeholder="the WRITE_KEY secret"
-               value="${esc(S.conn?.key || '')}">
-        <p class="dim" style="font-size:12.5px;margin:10px 0 0">
-          Stored in this artifact's database, never in the public repository. Everyone
-          the artifact is shared with can read it &mdash; the same people already
-          trusted to publish. Rotate it when that changes.
-        </p>
-      </div>
-    </div>
-
-    ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
-
-    <div style="display:flex;gap:9px">
-      <button class="btn" onclick="saveConn($('#ep').value, $('#wk').value)">Save</button>
-      <button class="btn ghost" onclick="go('workspace')">Back</button>
     </div>`;
 }
 
@@ -686,7 +557,6 @@ function render(){
   const v = S.view==='workspace' ? vWorkspace()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()
-          : S.view==='conn'      ? vConn()
           : vResult();
   $('#view').innerHTML = v;
 }

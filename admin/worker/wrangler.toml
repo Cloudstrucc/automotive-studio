@@ -1,0 +1,23 @@
+name = "autoline-write"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# The workspace page is imported as a string and served from GET /.
+# Serving it here rather than as an Artifact is what makes the whole thing work:
+# an Artifact's CSP is `connect-src 'self' <its own frame>`, so a published page
+# can never call this Worker. Same origin removes the question entirely.
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+
+[vars]
+REPO = "Cloudstrucc/automotive-studio"
+BRANCH = "main"
+# The safety boundary: nothing outside these prefixes can be written, so even a
+# leaked credential cannot reach .github/workflows/, build.py or tools/.
+ALLOW_PREFIXES = "manifests/,source-photos/,development/"
+
+# Secrets are NOT set here:
+#   wrangler secret put GITHUB_TOKEN      fine-grained PAT, one repo, Contents: RW
+#   wrangler secret put ANTHROPIC_API_KEY for POST /api/plan
+#   wrangler secret put WRITE_KEY         optional; only for scripted calls (see README)
