@@ -1,0 +1,7 @@
+{
+  "sienna":   { "name": "Toyota Sienna",          "subtitle": "LE · 8-Passenger",    "order": 1 },
+  "mercedes": { "name": "Mercedes-Benz E 350",    "subtitle": "4MATIC · Premium",    "order": 2 },
+  "santafe":  { "name": "Hyundai Santa Fe Sport", "subtitle": "2.4L · Heated Seats", "order": 3 },
+  "elantra":  { "name": "Hyundai Elantra GT",     "subtitle": "GLS · Hatchback",     "order": 4 },
+  "buick":    { "name": "Buick LaCrosse",         "subtitle": "Premium · Leather",   "order": 5 }
+}

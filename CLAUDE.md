@@ -1,0 +1,61 @@
+# CLAUDE.md — Autoline Vehicle Ad Portal
+
+Project memory for Claude Code. Read this first when working in this repo.
+
+## What this repo is
+A self-building GitHub Pages site that publishes pre-owned vehicle ads (the **Velocity** design
+direction) across **three environments** from a single repo. A GitHub Actions workflow rebuilds and
+redeploys on every push.
+
+- 🟢 `production/` — approved, publish-ready ads → `/<repo>/production/`
+- 🟠 `review/` — shared with the client for sign-off (UAT) → `/<repo>/review/`
+- 🔵 `development/` — work in progress → `/<repo>/development/`
+- Landing page at `/<repo>/` links to all three.
+
+Owner: Fred Pearson (CloudStrucc). Market: Ottawa / Ontario. Contact printed on ads: **1 613 447 4520**.
+
+## How the site is generated
+- `build.py` (Python stdlib only) scans each environment's `ads/jpg/` folder, groups files by
+  vehicle, and generates: the landing page, each environment's lineup board, and a page per vehicle.
+- `.github/workflows/deploy.yml` runs `build.py` on every push to `main` and deploys `_site/` to Pages.
+- `assets/style.css` is the shared stylesheet (Velocity dark theme). Edit the look here.
+- `_site/` is build output — **never commit it** (see `.gitignore`).
+
+## The one hard rule: file naming
+Ad images live in `<env>/ads/jpg/` named **`<vehicleId>_<format>.jpg`**, with matching optional
+SVGs in `<env>/ads/svg/`:
+- Everything before the **last** underscore is the vehicle id (`buick`, `santafe`, `elantra`…).
+- Format is `social` (4:5, 1080×1350), `phone` (9:19.5, 1080×2340), or `landscape` (16:9, 1920×1080).
+- `<env>/cars.json` maps a vehicle id → `{name, subtitle, order}` (optional; ids default to title-case).
+
+## Current lineup (prices are printed on the images, not in cars.json)
+| id | Vehicle | KM | Price |
+|---|---|--:|--:|
+| sienna | Toyota Sienna LE | 165,000 | $18,000 |
+| mercedes | Mercedes-Benz E 350 4MATIC | 126,000 | $17,900 |
+| santafe | Hyundai Santa Fe Sport 2.4L | 107,000 | $14,000 |
+| elantra | Hyundai Elantra GT GLS | 96,000 | $12,000 |
+| buick | Buick LaCrosse Premium | 83,000 | $11,500 |
+
+Still placeholder on the ads: **model year** (shown as `20XX`). Dealer name was removed; contact is the phone number.
+
+## Common tasks
+- **Preview locally:** `python build.py` → open `_site/index.html`.
+- **Add a vehicle:** add `ads/jpg/<id>_social.jpg` (+ phone/landscape, + svgs) to the env, add a line
+  to that env's `cars.json`, commit & push.
+- **Update a vehicle:** replace its image files, commit & push.
+- **Remove a sold vehicle:** delete its files from `ads/jpg/` (and `ads/svg/`), commit & push.
+- **Promote:** copy a vehicle's files from `development/` → `review/` → `production/`.
+- **Change what's printed on an ad** (price, km, contact): use `tools/` — see `tools/README.md`.
+  Edit `tools/gen_velocity.py` `CARS`, run `gen_velocity.py` then `render_jpgs.py`, copy outputs into
+  the env folder.
+
+## Design direction (Velocity)
+- Dark stage, electric-green accent `#19e36a`; condensed display face **Archivo**, body **Inter**.
+- Full vehicle always visible (photos composited on a blurred same-photo background; never cropped).
+- Vehicles with multiple photos stack two angles (front+rear vertical, side-by-side on landscape).
+
+## Conventions
+- Keep `build.py` dependency-free (stdlib only) so CI stays simple.
+- The ad JPGs/SVGs are the source of truth for on-image text; don't duplicate price/km in HTML.
+- Don't commit `_site/`, `tools/output/`, or `__pycache__/`.
