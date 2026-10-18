@@ -109,9 +109,14 @@ async function handlePlan(request, env) {
   }
 
   if (!res.ok) {
-    const detail = await res.text().catch(() => '');
+    const raw = await res.text().catch(() => '');
+    let detail = raw;
+    try { detail = JSON.parse(raw)?.error?.message || raw; } catch {}
     if (res.status === 429) return json({ error: 'the assistant is rate limited; try again shortly' }, 429);
-    return json({ error: `assistant error ${res.status}`, detail: detail.slice(0, 300) }, 502);
+    if (res.status === 401) {
+      return json({ error: `the Anthropic API key was rejected: ${String(detail).slice(0, 200)}` }, 502);
+    }
+    return json({ error: `assistant error ${res.status}: ${String(detail).slice(0, 200)}` }, 502);
   }
 
   const data = await res.json();

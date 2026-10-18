@@ -137,6 +137,10 @@ pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:
 /* ---------- configuration ----------
    Spec slots per catalogue. These mirror manifests/catalogues/<slug>.json in the repo;
    a catalogue supplies default labels and an item may override any of them. */
+const TARGET_ENV = 'development';
+const SITE = 'https://cloudstrucc.github.io/automotive-studio';
+const TARGET_URL = `${SITE}/${TARGET_ENV}/`;
+
 const CATALOGUES = [
   { slug:'vehicles', label:'Vehicles', mark:'VE', specs:['KM','Engine','Drivetrain'] },
   { slug:'tyres',    label:'Tyres',    mark:'TY', specs:['Size','Season','Condition'] },
@@ -278,7 +282,7 @@ async function askForPlan(){
       }),
     });
     const out = await res.json().catch(() => ({}));
-    if (!res.ok || !out.ok) throw new Error(out.error || `assistant returned ${res.status}`);
+    if (!res.ok || !out.ok) throw new Error(out.error || out.detail || `assistant returned ${res.status}`);
     S.plan = out.plan;
     S.view = 'plan';
   } catch (e) {
@@ -304,10 +308,11 @@ function buildPayload(){
   };
   return {
     files: [
-      { path:`manifests/items/${S.cat.slug}/${slug}.json`, contents: manifest },
-      ...S.photos.map((p,i) => ({ path:`source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, b64:p.b64 })),
+      { path:`${TARGET_ENV}/manifests/items/${S.cat.slug}/${slug}.json`, contents: manifest },
+      ...S.photos.map((p,i) => ({
+        path:`${TARGET_ENV}/source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, b64:p.b64 })),
     ],
-    message: `Add ${f.year || ''} ${f.title || slug}`.trim(),
+    message: `Add ${f.year || ''} ${f.title || slug}`.trim() + ` to ${TARGET_ENV}`,
   };
 }
 
@@ -463,6 +468,9 @@ function vPlan(){
     <p class="lede">Nothing has been written. Edit anything below, then confirm.</p>
 
     <div class="sum" style="margin-top:20px">${esc(S.plan.summary)}</div>
+    <p class="dim" style="font-size:12.5px;margin:0 0 14px">
+      Publishing writes to the <strong>preview</strong> site, not the live one.
+    </p>
 
     <div class="card">
       <div class="card-h">Fields</div>
@@ -506,11 +514,10 @@ function vResult(){
           <div style="font-size:42px;color:var(--acc);line-height:1">&#10003;</div>
           <h1 style="font-size:24px;margin:12px 0 8px">It's live</h1>
           <p class="dim" style="margin:0 0 6px">Commit
-            <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>.
-            The site rebuilds in about a minute.</p>
+            <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>,
+            on the <strong>preview</strong> site. Rebuilds in about a minute.</p>
           <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
-            <a class="btn" target="_blank"
-               href="https://cloudstrucc.github.io/automotive-studio/">View the site</a>
+            <a class="btn" target="_blank" href="${TARGET_URL}">View the preview site</a>
             <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];go('workspace')">
               Make another change
             </button>
