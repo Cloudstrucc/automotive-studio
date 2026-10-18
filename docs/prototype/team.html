@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team — Autoline Admin</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><i></i>Autoline</div>
+    <a class="nav-link " href="dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+    <div class="nav-section">Catalogues</div>
+    <a class="nav-link " href="catalogue.html"><i class="bi bi-car-front"></i> Vehicles <span class="ms-auto small">5</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-circle"></i> Tyres <span class="ms-auto small">3</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-tools"></i> Services <span class="ms-auto small">4</span></a>
+    <a class="nav-link " href="catalogue-new.html"><i class="bi bi-plus-lg"></i> New catalogue</a>
+    <div class="nav-section">Site</div>
+    <a class="nav-link active" href="team.html"><i class="bi bi-people"></i> Team</a>
+    <a class="nav-link " href="activity.html"><i class="bi bi-clock-history"></i> Activity</a>
+    <a class="nav-link " href="settings.html"><i class="bi bi-sliders"></i> Settings</a>
+    <div class="spacer"></div>
+    <div class="whoami">
+      <div class="fw-semibold text-white">client@example.com</div>
+      <a href="index.html" class="text-decoration-none" style="color:#64748b">Sign out</a>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="small text-muted-2">
+          <a href="dashboard.html" class="text-decoration-none text-muted-2">Dashboard</a>
+          <span class="mx-1">/</span> Team
+        </div>
+        <h1>Team</h1>
+      </div>
+      <div class="ms-auto"><button class="btn btn-sm btn-accent" data-bs-toggle="modal" data-bs-target="#inviteModal"><i class="bi bi-person-plus me-1"></i>Invite admin</button></div>
+    </div>
+    <div class="content">
+
+      <div class="proto-note">
+        <b>Prototype.</b> One role — every admin has full access. Invites expire after
+        7 days and can be revoked before they're used.
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Admins</div>
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Email</th><th>Added</th><th>Last seen</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="fw-semibold">fred@cloudstrucc.com</span>
+                  <span class="badge bg-light text-dark border ms-1 small">you</span></td>
+              <td class="small text-muted-2">1 Oct 2026</td>
+              <td class="small text-muted-2">Just now</td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-secondary" disabled>Remove</button></td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">client@example.com</td>
+              <td class="small text-muted-2">14 Oct 2026</td>
+              <td class="small text-muted-2">12 minutes ago</td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-danger">Remove</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Pending invitations</div>
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Email</th><th>Sent</th><th>Expires</th><th>Status</th><th class="text-end">Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="fw-semibold">newadmin@example.com</td>
+              <td class="small text-muted-2">Yesterday</td>
+              <td class="small text-muted-2">In 6 days</td>
+              <td><span class="badge badge-state badge-draft rounded-pill">Pending</span></td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary">Copy link</button>
+                <button class="btn btn-sm btn-outline-danger">Revoke</button>
+              </td>
+            </tr>
+            <tr class="text-muted-2">
+              <td>old@example.com</td>
+              <td class="small">2 Oct 2026</td>
+              <td class="small">Expired</td>
+              <td><span class="badge badge-state badge-archived rounded-pill">Expired</span></td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-secondary">Resend</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal fade" id="inviteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Invite an admin</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label slot-label">Email address</label>
+              <input class="form-control mb-3" placeholder="name@example.com">
+              <div class="alert alert-light border small mb-0">
+                They'll get a one-time link that expires in 7 days. You can revoke it any
+                time before it's used.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-accent" data-bs-dismiss="modal">Send invitation</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="vendor/bootstrap.bundle.min.js"></script>
+</body>
+</html>

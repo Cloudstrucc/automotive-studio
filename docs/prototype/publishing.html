@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Publishing — Autoline Admin</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><i></i>Autoline</div>
+    <a class="nav-link " href="dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+    <div class="nav-section">Catalogues</div>
+    <a class="nav-link active" href="catalogue.html"><i class="bi bi-car-front"></i> Vehicles <span class="ms-auto small">5</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-circle"></i> Tyres <span class="ms-auto small">3</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-tools"></i> Services <span class="ms-auto small">4</span></a>
+    <a class="nav-link " href="catalogue-new.html"><i class="bi bi-plus-lg"></i> New catalogue</a>
+    <div class="nav-section">Site</div>
+    <a class="nav-link " href="team.html"><i class="bi bi-people"></i> Team</a>
+    <a class="nav-link " href="activity.html"><i class="bi bi-clock-history"></i> Activity</a>
+    <a class="nav-link " href="settings.html"><i class="bi bi-sliders"></i> Settings</a>
+    <div class="spacer"></div>
+    <div class="whoami">
+      <div class="fw-semibold text-white">client@example.com</div>
+      <a href="index.html" class="text-decoration-none" style="color:#64748b">Sign out</a>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="small text-muted-2">
+          <a href="dashboard.html" class="text-decoration-none text-muted-2">Dashboard</a>
+          <span class="mx-1">/</span> Publishing
+        </div>
+        <h1>Publishing to the site</h1>
+      </div>
+      
+    </div>
+    <div class="content">
+
+      <div class="proto-note">
+        <b>Prototype.</b> This is what the client sees after clicking Publish — the
+        actual GitHub Actions run, not a spinner that lies.
+      </div>
+
+      <div class="card" style="max-width:640px">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="spinner-border text-success" role="status"></div>
+            <div>
+              <div class="fw-bold">Publishing “2017 Hyundai Santa Fe Sport”</div>
+              <div class="small text-muted-2">Started 18 seconds ago · usually takes about a minute</div>
+            </div>
+          </div>
+
+          <ul class="list-unstyled mb-4">
+            <li class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-check-circle-fill text-success"></i>
+              <span class="fw-semibold">Saved and committed</span>
+              <span class="ms-auto small text-muted-2 font-monospace">a3f91c2</span>
+            </li>
+            <li class="d-flex align-items-center gap-2 mb-3">
+              <i class="bi bi-check-circle-fill text-success"></i>
+              <span class="fw-semibold">Ad artwork rendered</span>
+              <span class="ms-auto small text-muted-2">3 formats</span>
+            </li>
+            <li class="d-flex align-items-center gap-2 mb-3">
+              <div class="spinner-border spinner-border-sm text-secondary"></div>
+              <span class="fw-semibold">Building the site</span>
+              <span class="ms-auto small text-muted-2">in progress</span>
+            </li>
+            <li class="d-flex align-items-center gap-2 text-muted-2">
+              <i class="bi bi-circle"></i>
+              <span>Going live</span>
+            </li>
+          </ul>
+
+          <div class="progress mb-4" style="height:6px">
+            <div class="progress-bar bg-success" style="width:62%"></div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <a href="published.html" class="btn btn-accent">Simulate completion →</a>
+            <a href="dashboard.html" class="btn btn-outline-secondary">Leave it running</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="vendor/bootstrap.bundle.min.js"></script>
+</body>
+</html>

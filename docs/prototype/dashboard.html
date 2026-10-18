@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Autoline Admin</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand"><i></i>Autoline</div>
+    <a class="nav-link active" href="dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+
+    <div class="nav-section">Catalogues</div>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-car-front"></i> Vehicles <span class="ms-auto small">5</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-circle"></i> Tyres <span class="ms-auto small">3</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-tools"></i> Services <span class="ms-auto small">4</span></a>
+    <a class="nav-link" href="catalogue-new.html"><i class="bi bi-plus-lg"></i> New catalogue</a>
+
+    <div class="nav-section">Site</div>
+    <a class="nav-link" href="team.html"><i class="bi bi-people"></i> Team</a>
+    <a class="nav-link" href="activity.html"><i class="bi bi-clock-history"></i> Activity</a>
+    <a class="nav-link" href="settings.html"><i class="bi bi-sliders"></i> Settings</a>
+
+    <div class="spacer"></div>
+    <div class="whoami">
+      <div class="fw-semibold text-white">client@example.com</div>
+      <a href="index.html" class="text-decoration-none" style="color:#64748b">Sign out</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Dashboard</h1>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="badge rounded-pill" style="background:#d1fadf;color:#054f31">
+          <i class="bi bi-check-circle-fill me-1"></i>Site live
+        </span>
+        <a href="https://cloudstrucc.github.io/automotive-studio/" target="_blank"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-box-arrow-up-right me-1"></i>View site
+        </a>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="proto-note">
+        <b>Prototype.</b> Clickable mock-up of the proposed admin — no backend, nothing saves.
+        Try <em>Vehicles → Edit</em> to see the item editor, which is the screen that matters most.
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+          <a class="tile" href="catalogue.html"><div class="card"><div class="card-body">
+            <div class="ico"><i class="bi bi-car-front"></i></div>
+            <div class="count">5</div>
+            <div class="fw-semibold mt-1">Vehicles</div>
+            <div class="small text-muted-2">5 published</div>
+          </div></div></a>
+        </div>
+        <div class="col-6 col-lg-3">
+          <a class="tile" href="catalogue.html"><div class="card"><div class="card-body">
+            <div class="ico"><i class="bi bi-circle"></i></div>
+            <div class="count">3</div>
+            <div class="fw-semibold mt-1">Tyres</div>
+            <div class="small text-muted-2">2 published · 1 draft</div>
+          </div></div></a>
+        </div>
+        <div class="col-6 col-lg-3">
+          <a class="tile" href="catalogue.html"><div class="card"><div class="card-body">
+            <div class="ico"><i class="bi bi-tools"></i></div>
+            <div class="count">4</div>
+            <div class="fw-semibold mt-1">Services</div>
+            <div class="small text-muted-2">4 published</div>
+          </div></div></a>
+        </div>
+        <div class="col-6 col-lg-3">
+          <a class="tile" href="catalogue-new.html"><div class="card border-dashed"><div class="card-body d-flex flex-column justify-content-center align-items-center text-center h-100">
+            <div class="ico"><i class="bi bi-plus-lg"></i></div>
+            <div class="fw-semibold">New catalogue</div>
+            <div class="small text-muted-2">Adds a menu item to the site</div>
+          </div></div></a>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="card">
+            <div class="card-header d-flex align-items-center">
+              Recent activity
+              <a href="activity.html" class="ms-auto small text-decoration-none">View all</a>
+            </div>
+            <div class="list-group list-group-flush">
+              <div class="list-group-item d-flex align-items-center gap-3">
+                <i class="bi bi-check-circle-fill text-success"></i>
+                <div class="flex-fill">
+                  <div class="fw-semibold">Published “2017 Hyundai Santa Fe Sport”</div>
+                  <div class="small text-muted-2">client@example.com · 12 minutes ago</div>
+                </div>
+                <span class="badge badge-state badge-published rounded-pill">Live</span>
+              </div>
+              <div class="list-group-item d-flex align-items-center gap-3">
+                <i class="bi bi-pencil-square text-secondary"></i>
+                <div class="flex-fill">
+                  <div class="fw-semibold">Edited price on “2013 Buick LaCrosse”</div>
+                  <div class="small text-muted-2">client@example.com · 1 hour ago</div>
+                </div>
+              </div>
+              <div class="list-group-item d-flex align-items-center gap-3">
+                <i class="bi bi-person-plus text-secondary"></i>
+                <div class="flex-fill">
+                  <div class="fw-semibold">Invitation sent to newadmin@example.com</div>
+                  <div class="small text-muted-2">fred@cloudstrucc.com · yesterday</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-header">Last publish</div>
+            <div class="card-body">
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-check-circle-fill text-success"></i>
+                <div>
+                  <div class="fw-semibold">Build succeeded</div>
+                  <div class="small text-muted-2">12 minutes ago · took 24s</div>
+                </div>
+              </div>
+              <div class="small text-muted-2 mb-1">Commit</div>
+              <div class="font-monospace small mb-3">7099fae — publish santafe</div>
+              <a href="activity.html" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-clock-history me-1"></i>Publish history
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

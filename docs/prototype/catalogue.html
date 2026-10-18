@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicles — Autoline Admin</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand"><i></i>Autoline</div>
+    <a class="nav-link" href="dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+    <div class="nav-section">Catalogues</div>
+    <a class="nav-link active" href="catalogue.html"><i class="bi bi-car-front"></i> Vehicles <span class="ms-auto small">5</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-circle"></i> Tyres <span class="ms-auto small">3</span></a>
+    <a class="nav-link" href="catalogue.html"><i class="bi bi-tools"></i> Services <span class="ms-auto small">4</span></a>
+    <a class="nav-link" href="catalogue-new.html"><i class="bi bi-plus-lg"></i> New catalogue</a>
+    <div class="nav-section">Site</div>
+    <a class="nav-link" href="team.html"><i class="bi bi-people"></i> Team</a>
+    <a class="nav-link" href="activity.html"><i class="bi bi-clock-history"></i> Activity</a>
+    <a class="nav-link" href="settings.html"><i class="bi bi-sliders"></i> Settings</a>
+    <div class="spacer"></div>
+    <div class="whoami">
+      <div class="fw-semibold text-white">client@example.com</div>
+      <a href="index.html" class="text-decoration-none" style="color:#64748b">Sign out</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="small text-muted-2">
+          <a href="dashboard.html" class="text-decoration-none text-muted-2">Dashboard</a>
+          <span class="mx-1">/</span> Vehicles
+        </div>
+        <h1>Vehicles</h1>
+      </div>
+      <div class="ms-auto d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-gear me-1"></i>Catalogue settings</button>
+        <a href="editor.html" class="btn btn-sm btn-accent"><i class="bi bi-plus-lg me-1"></i>Add vehicle</a>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="proto-note">
+        <b>Prototype.</b> The three spec slots below come from this catalogue's defaults
+        — <em>KM, Engine, Drivetrain</em>. A Services catalogue would show
+        <em>Duration, Includes, Warranty</em> instead.
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3">
+          <div>
+            <div class="slot-label">Menu label</div>
+            <div class="fw-semibold">Vehicles</div>
+          </div>
+          <div>
+            <div class="slot-label">Site path</div>
+            <div class="fw-semibold font-monospace small">/vehicles/</div>
+          </div>
+          <div>
+            <div class="slot-label">Spec slots</div>
+            <div class="fw-semibold">KM · Engine · Drivetrain</div>
+          </div>
+          <div class="ms-auto">
+            <span class="badge badge-state badge-published rounded-pill">Published</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header d-flex align-items-center">
+          <span>5 items</span>
+          <div class="ms-auto d-flex gap-2">
+            <input class="form-control form-control-sm" placeholder="Search…" style="width:180px">
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:40px"></th>
+                <th style="width:84px">Ad</th>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Specs</th>
+                <th>State</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-muted-2"><i class="bi bi-grip-vertical"></i></td>
+                <td><img class="thumb-sm" src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/santafe_social.jpg" alt=""></td>
+                <td>
+                  <div class="fw-semibold">2017 Hyundai Santa Fe Sport</div>
+                  <div class="small text-muted-2">2.4L · Heated Seats</div>
+                </td>
+                <td class="fw-semibold">$14,000</td>
+                <td class="small text-muted-2">107,000 · 2.4L I4 · FWD/AWD</td>
+                <td><span class="badge badge-state badge-published rounded-pill">Published</span></td>
+                <td class="text-end">
+                  <a href="editor.html" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </td>
+              </tr>
+              <tr>
+                <td class="text-muted-2"><i class="bi bi-grip-vertical"></i></td>
+                <td><img class="thumb-sm" src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/buick_social.jpg" alt=""></td>
+                <td>
+                  <div class="fw-semibold">2013 Buick LaCrosse</div>
+                  <div class="small text-muted-2">Premium · Leather</div>
+                </td>
+                <td class="fw-semibold">$11,500</td>
+                <td class="small text-muted-2">83,000 · 3.6L V6 · FWD</td>
+                <td><span class="badge badge-state badge-published rounded-pill">Published</span></td>
+                <td class="text-end">
+                  <a href="editor.html" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </td>
+              </tr>
+              <tr>
+                <td class="text-muted-2"><i class="bi bi-grip-vertical"></i></td>
+                <td><img class="thumb-sm" src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/elantra_social.jpg" alt=""></td>
+                <td>
+                  <div class="fw-semibold">2016 Hyundai Elantra GT</div>
+                  <div class="small text-muted-2">GLS · Hatchback</div>
+                </td>
+                <td class="fw-semibold">$12,000</td>
+                <td class="small text-muted-2">96,000 · 2.0L I4 · FWD</td>
+                <td><span class="badge badge-state badge-published rounded-pill">Published</span></td>
+                <td class="text-end">
+                  <a href="editor.html" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </td>
+              </tr>
+              <tr>
+                <td class="text-muted-2"><i class="bi bi-grip-vertical"></i></td>
+                <td><img class="thumb-sm" src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/sienna_social.jpg" alt=""></td>
+                <td>
+                  <div class="fw-semibold">2016 Toyota Sienna</div>
+                  <div class="small text-muted-2">LE · 8-Passenger</div>
+                </td>
+                <td class="fw-semibold">$18,000</td>
+                <td class="small text-muted-2">165,000 · 3.5L V6 · FWD</td>
+                <td><span class="badge badge-state badge-published rounded-pill">Published</span></td>
+                <td class="text-end">
+                  <a href="editor.html" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </td>
+              </tr>
+              <tr class="table-warning-subtle">
+                <td class="text-muted-2"><i class="bi bi-grip-vertical"></i></td>
+                <td><img class="thumb-sm" src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/mercedes_social.jpg" alt=""></td>
+                <td>
+                  <div class="fw-semibold">2014 Mercedes-Benz E 350</div>
+                  <div class="small text-muted-2">4MATIC · Premium</div>
+                </td>
+                <td class="fw-semibold">$17,900</td>
+                <td class="small text-muted-2">126,000 · 3.5L V6 · AWD</td>
+                <td><span class="badge badge-state badge-published rounded-pill">Published</span></td>
+                <td class="text-end">
+                  <a href="editor.html" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="small text-muted-2 mt-3 mb-0">
+        <i class="bi bi-grip-vertical me-1"></i>Drag to reorder — the site lineup follows this order.
+      </p>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
