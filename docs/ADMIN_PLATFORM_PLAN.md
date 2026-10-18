@@ -1,6 +1,11 @@
 # Admin platform — implementation plan
 
-Status: **proposal, nothing built.** Written 18 Oct 2026.
+> **SUPERSEDED by [`ADMIN_APP_PLAN.md`](ADMIN_APP_PLAN.md).** That plan is the current
+> direction: a lean Express/Handlebars/Svelte admin publishing into this repo, rather
+> than the Next.js platform proposed here. Kept for the security checklist (§9) and the
+> passkey notes (§4), which still apply if passkeys are revisited.
+
+Status: **superseded proposal, nothing built.** Written 18 Oct 2026.
 
 Covers the authenticated admin area (`/admin/*`), passwordless auth (`/auth/*`), the
 workspace tiles, and the site-template feature.
