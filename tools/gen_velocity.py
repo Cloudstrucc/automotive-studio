@@ -143,9 +143,14 @@ def velocity(W,H,c):
             photo(x,y,ws[i],h,shots[i]["sharp"],i); x+=ws[i]+g
     else:                                   # single hero
         ar=shots[0]["ar"]; maxW=W-(8*u if portrait else 16*u)
+        # A portrait hero sits 3.5u below the top of the region, so the height it can
+        # take is the region minus that offset -- clamping to the full region let a
+        # tall shot run 3.5u past cardBottom and into the title.
+        pad=3.5*u if portrait else 0
+        avail=regionH-pad
         cw=maxW; ch=cw/ar
-        if ch>regionH: ch=regionH; cw=ch*ar
-        cx=(W-cw)/2; cy=(cardTop+3.5*u) if portrait else (cardTop+(regionH-ch)/2)
+        if ch>avail: ch=avail; cw=ch*ar
+        cx=(W-cw)/2; cy=(cardTop+pad) if portrait else (cardTop+(regionH-ch)/2)
         o.append(f'<ellipse cx="{cx+cw/2:.1f}" cy="{cy+ch/2:.1f}" rx="{cw*0.62:.1f}" ry="{ch*0.6:.1f}" fill="url(#vglow{uid})"/>')
         photo(cx,cy,cw,ch,shots[0]["sharp"],0)
     # ── top band ──

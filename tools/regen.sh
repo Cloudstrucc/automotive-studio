@@ -34,21 +34,26 @@ echo "==> installing pinned dependencies"
 echo "==> ensuring chromium is present"
 "$VENV/bin/playwright" install chromium >/dev/null
 
-echo "==> generating svg"
-"$PY" gen_velocity.py
-
-echo "==> rendering jpg"
-"$PY" render_jpgs.py
-
 if [ "$#" -eq 0 ]; then
+  echo "==> generating svg from production/ (no environment named)"
+  "$PY" gen_velocity.py production
+  echo "==> rendering jpg"
+  "$PY" render_jpgs.py
   echo
-  echo "Built into tools/output/. Pass environment names to copy them in, e.g."
+  echo "Built into tools/output/. Pass environment names to render and copy, e.g."
   echo "  ./regen.sh production review development"
   exit 0
 fi
 
+# Each environment is rendered from its own manifests, since they can differ --
+# that is the whole point of publishing to development/ before production/.
 for env in "$@"; do
+  echo "==> $env: generating svg"
+  "$PY" gen_velocity.py "$env"
+  echo "==> $env: rendering jpg"
+  "$PY" render_jpgs.py
   dest="../$env/ads"
+  rm -f "$dest"/jpg/*.jpg "$dest"/svg/*.svg
   cp output/jpg/*.jpg "$dest/jpg/"
   cp output/svg/*.svg "$dest/svg/"
   echo "==> copied into $env/"
