@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "slug": "buick",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 2,
+  "year": "2013",
+  "make": "Buick",
+  "model": "LaCrosse",
+  "subtitle": "Premium · Leather",
+  "price": "11,500",
+  "eyebrow": "Showroom Ready",
+  "kicker": "FWD · Sedan",
+  "specs": [
+    {
+      "label": "KM",
+      "value": "83,000"
+    },
+    {
+      "label": "Engine",
+      "value": "3.6L V6"
+    },
+    {
+      "label": "Drivetrain",
+      "value": "FWD"
+    }
+  ],
+  "images": [
+    {
+      "file": "source-photos/vehicles/buick/1.jpg",
+      "role": "primary"
+    },
+    {
+      "file": "source-photos/vehicles/buick/2.jpg",
+      "role": "secondary"
+    },
+    {
+      "file": "source-photos/vehicles/buick/3.jpg",
+      "role": "secondary"
+    }
+  ],
+  "background": "source-photos/vehicles/buick/blur.jpg"
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "mercedes",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 5,
+  "year": "2014",
+  "make": "Mercedes-Benz",
+  "model": "E 350",
+  "subtitle": "4MATIC · Premium",
+  "price": "17,900",
+  "eyebrow": "Luxury AWD",
+  "kicker": "AWD · Sedan",
+  "specs": [
+    {
+      "label": "KM",
+      "value": "126,000"
+    },
+    {
+      "label": "Engine",
+      "value": "3.5L V6"
+    },
+    {
+      "label": "Drivetrain",
+      "value": "AWD"
+    }
+  ],
+  "images": [
+    {
+      "file": "source-photos/vehicles/mercedes/1.jpg",
+      "role": "primary"
+    }
+  ],
+  "background": "source-photos/vehicles/mercedes/blur.jpg"
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "santafe",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 1,
+  "year": "2017",
+  "make": "Hyundai",
+  "model": "Santa Fe Sport",
+  "subtitle": "2.4L · Heated Seats",
+  "price": "14,000",
+  "eyebrow": "Certified",
+  "kicker": "FWD/AWD · SUV",
+  "specs": [
+    {
+      "label": "KM",
+      "value": "107,000"
+    },
+    {
+      "label": "Engine",
+      "value": "2.4L I4"
+    },
+    {
+      "label": "Drivetrain",
+      "value": "FWD/AWD"
+    }
+  ],
+  "images": [
+    {
+      "file": "source-photos/vehicles/santafe/1.jpg",
+      "role": "primary"
+    }
+  ],
+  "background": "source-photos/vehicles/santafe/blur.jpg"
+}

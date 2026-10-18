@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "elantra",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 3,
+  "year": "2016",
+  "make": "Hyundai",
+  "model": "Elantra GT",
+  "subtitle": "GLS · Hatchback",
+  "price": "12,000",
+  "eyebrow": "Fuel Saver",
+  "kicker": "FWD · Hatchback",
+  "specs": [
+    {
+      "label": "KM",
+      "value": "96,000"
+    },
+    {
+      "label": "Engine",
+      "value": "2.0L I4"
+    },
+    {
+      "label": "Drivetrain",
+      "value": "FWD"
+    }
+  ],
+  "images": [
+    {
+      "file": "source-photos/vehicles/elantra/1.jpg",
+      "role": "primary"
+    }
+  ],
+  "background": "source-photos/vehicles/elantra/blur.jpg"
+}

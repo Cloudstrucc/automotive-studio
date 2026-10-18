@@ -5,14 +5,18 @@ an ad (year, price, mileage, contact, trim) — the website only handles whole i
 
 ## What's here
 - `gen_velocity.py`  — builds the 15 SVG ads (5 cars × 3 formats) into `output/svg/`.
-- `photos/<id>/` — each vehicle's source photos: `blur.jpg` for the background,
-  `1.jpg`, `2.jpg` … for the shots, in order.
+- photos and copy both come from `<env>/manifests/items/<catalogue>/<slug>.json` and
+  `<env>/source-photos/…` — the same files the admin writes.
 - `render_jpgs.py`   — renders those SVGs to JPGs in `output/jpg/`.
 - `requirements.txt` — pinned dependencies, so a rebuild months from now matches today's.
 - `regen.sh`         — does all of the above in one command.
 
-## Change a price / year / mileage / contact
-1. Edit the `CARS` dict at the top of `gen_velocity.py` (or `PHONE` / `EMAIL` just below it).
+## Change a price / year / mileage
+Edit the item's manifest — `<env>/manifests/items/vehicles/<slug>.json` — then regenerate.
+The admin does exactly this; editing the file by hand is the same operation.
+
+## Change the contact details
+1. Edit `PHONE` / `EMAIL` at the top of `gen_velocity.py`.
 2. From the repo root:
    ```bash
    ./tools/regen.sh production review development
@@ -36,9 +40,15 @@ byte-identical SVGs and JPGs. If a run shows unexpected diffs, the Playwright ve
 check `requirements.txt` against `tools/.venv/bin/pip freeze`.
 
 ## Adding a vehicle
-Drop the photos into `photos/<id>/` — `blur.jpg` plus `1.jpg`, `2.jpg` … — then add a
-`CARS` entry and a line in each environment's `cars.json`. Aspect ratios are read from
-the files; nothing needs recording by hand.
+Write a manifest at `<env>/manifests/items/vehicles/<slug>.json` and put its photos
+where the manifest's `images[].file` paths point — normally
+`<env>/source-photos/vehicles/<slug>/1.jpg`. Then regenerate.
 
-`blur.jpg` is a small, heavily-downscaled copy of the first shot, used as the frame-filling
-background. Any low-resolution version of the same photo works.
+Fields the ad draws: `year`, `make`, `model`, `subtitle`, `price`, `eyebrow` (the
+corner badge), `kicker` (the small line under it), and the first three `specs`
+entries as the three columns. Aspect ratios are read from the JPEGs.
+
+`background` is optional — a small, heavily downscaled copy used as the frame-filling
+backdrop. Without one the first shot stands in, since it is blurred and veiled anyway.
+
+An item is only rendered when `"status": "published"` and it has at least one image.

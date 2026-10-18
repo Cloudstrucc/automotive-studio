@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "sienna",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 4,
+  "year": "2016",
+  "make": "Toyota",
+  "model": "Sienna",
+  "subtitle": "LE · 8-Passenger",
+  "price": "18,000",
+  "eyebrow": "Family Hauler",
+  "kicker": "FWD · Minivan",
+  "specs": [
+    {
+      "label": "KM",
+      "value": "165,000"
+    },
+    {
+      "label": "Engine",
+      "value": "3.5L V6"
+    },
+    {
+      "label": "Drivetrain",
+      "value": "FWD"
+    }
+  ],
+  "images": [
+    {
+      "file": "source-photos/vehicles/sienna/1.jpg",
+      "role": "primary"
+    }
+  ],
+  "background": "source-photos/vehicles/sienna/blur.jpg"
+}

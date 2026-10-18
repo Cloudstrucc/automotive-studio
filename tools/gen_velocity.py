@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # VELOCITY only — full car always visible: blurred bg (same photo) fills the frame,
 # sharp uncropped car floats on the Velocity stage. Sizes keyed to u=min(W,H)/100.
-import base64, os, html, struct
+import base64, json, os, html, struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHOTOS = os.path.join(HERE, "photos")
+REPO = os.path.dirname(HERE)
 
 def _jpeg_size(data):
     """Width and height from a JPEG's SOF marker. Stdlib only, like build.py."""
@@ -25,35 +25,55 @@ def _uri(path):
     with open(path, "rb") as fh:
         return "data:image/jpeg;base64," + base64.b64encode(fh.read()).decode("ascii")
 
-def load_photos(slug):
-    """Read a vehicle's photos from tools/photos/<slug>/.
+def load_items(env):
+    """Every published item in an environment, in display order.
 
-    blur.jpg is the background; 1.jpg, 2.jpg ... are the shots, in order. Aspect
-    ratios come from the files themselves, rounded to 4dp -- which is exactly what
-    the hand-maintained velocity_imgs.json recorded, so output is unchanged."""
-    folder = os.path.join(PHOTOS, slug)
+    The manifest is the source of truth: the file the admin writes is the file this
+    renders, so a vehicle added through the admin needs no code change to appear."""
+    folder = os.path.join(REPO, env, "manifests", "items")
     if not os.path.isdir(folder):
-        raise SystemExit(f"no photos for {slug!r}: expected {folder}")
+        raise SystemExit(f"no manifests in {env}/: expected {folder}")
+    items = []
+    for catalogue in sorted(os.listdir(folder)):
+        d = os.path.join(folder, catalogue)
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.endswith(".json"):
+                continue
+            with open(os.path.join(d, fn), encoding="utf-8") as fh:
+                m = json.load(fh)
+            if m.get("status") != "published":
+                continue
+            if not m.get("images"):
+                print(f"  ! skipping {catalogue}/{fn}: no image")
+                continue
+            m["_env"] = env
+            items.append(m)
+    items.sort(key=lambda m: (m.get("order", 999), m.get("slug", "")))
+    return items
+
+def load_photos(item):
+    """Resolve a manifest's image paths, relative to its environment root.
+
+    Aspect ratios are read from the JPEG headers rather than recorded by hand. Where
+    no background is given the first shot stands in, since it is blurred and veiled
+    anyway -- so an uploaded vehicle needs nothing beyond its photos."""
+    root = os.path.join(REPO, item["_env"])
     shots = []
-    for n in range(1, 10):
-        f = os.path.join(folder, f"{n}.jpg")
+    for img in item["images"]:
+        f = os.path.join(root, img["file"])
         if not os.path.isfile(f):
-            break
+            raise SystemExit(f'{item["slug"]}: missing image {img["file"]}')
         with open(f, "rb") as fh:
             raw = fh.read()
         w, h = _jpeg_size(raw)
         shots.append({"sharp": _uri(f), "ar": round(w / h, 4)})
-    if not shots:
-        raise SystemExit(f"no shots for {slug!r}: expected {folder}/1.jpg")
-    return {"blur": _uri(os.path.join(folder, "blur.jpg")), "shots": shots}
-CARS = {
- "sienna":   dict(year="2016", make="Toyota",        model="Sienna",         trim="LE · 8-Passenger",     body="Minivan",   drive="FWD",     km="165,000", price="18,000", eng="3.5L V6", tag="Family Hauler"),
- "mercedes": dict(year="2014", make="Mercedes-Benz", model="E 350",          trim="4MATIC · Premium",     body="Sedan",     drive="AWD",     km="126,000", price="17,900", eng="3.5L V6", tag="Luxury AWD"),
- "santafe":  dict(year="2017", make="Hyundai",        model="Santa Fe Sport", trim="2.4L · Heated Seats",  body="SUV",       drive="FWD/AWD", km="107,000", price="14,000", eng="2.4L I4", tag="Certified"),
- "elantra":  dict(year="2016", make="Hyundai",        model="Elantra GT",     trim="GLS · Hatchback",      body="Hatchback", drive="FWD",     km="96,000", price="12,000", eng="2.0L I4", tag="Fuel Saver"),
- "buick":    dict(year="2013", make="Buick",          model="LaCrosse",       trim="Premium · Leather",    body="Sedan",     drive="FWD",     km="83,000", price="11,500", eng="3.6L V6", tag="Showroom Ready"),
-}
-ORDER=["sienna","mercedes","santafe","elantra","buick"]
+    bg = item.get("background")
+    bg_path = os.path.join(root, bg) if bg else None
+    if not (bg_path and os.path.isfile(bg_path)):
+        bg_path = os.path.join(root, item["images"][0]["file"])
+    return {"blur": _uri(bg_path), "shots": shots}
 PHONE="1 613 447 4520"
 EMAIL="omarranwar58@gmail.com"
 FORMATS={"phone":(1080,2340),"social":(1080,1350),"landscape":(1920,1080)}
@@ -71,7 +91,7 @@ def txt(x,y,s,fs,fill,family=F_BODY,weight="400",anchor="start",ls=0,upper=False
 
 def velocity(W,H,c):
     u=min(W,H)/100; m=6*u; acc="#19e36a"; uid=f'{c["key"]}{W}'
-    d=load_photos(c["key"])
+    d=load_photos(c)
     o=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{F_BODY}">{IMPORT}']
     o.append('<defs>'
         f'<clipPath id="fr{uid}"><rect width="{W}" height="{H}"/></clipPath>'
@@ -132,19 +152,20 @@ def velocity(W,H,c):
     ly=m+3.4*u
     o.append(f'<rect x="{m:.1f}" y="{ly-2.5*u:.1f}" width="{2.3*u:.1f}" height="{2.3*u:.1f}" fill="{acc}"/>')
     o.append(txt(m+3.2*u,ly-0.5*u,"PRE-OWNED",2.3*u,"#fff",F_COND,"800",upper=True,ls=2))
-    o.append(txt(W-m,ly-0.3*u,c["tag"],1.9*u,acc,F_COND,"700",anchor="end",upper=True,ls=1.5))
-    o.append(txt(W-m,ly+1.9*u,f'{c["drive"]} · {c["body"]}',1.5*u,"#92a2b2",F_COND,"700",anchor="end",upper=True,ls=1.5))
+    o.append(txt(W-m,ly-0.3*u,c.get("eyebrow") or "",1.9*u,acc,F_COND,"700",anchor="end",upper=True,ls=1.5))
+    o.append(txt(W-m,ly+1.9*u,c.get("kicker") or "",1.5*u,"#92a2b2",F_COND,"700",anchor="end",upper=True,ls=1.5))
     # ── bottom text block ──
     priceB=H-8*u; priceT=priceB-11*u
     specsB=priceT-3*u; specsT=specsB-9*u
     trimBase=specsT-3*u
-    o.append(txt(m,trimBase,c["trim"],2.5*u,"#c3cedb",F_BODY,"600"))
+    o.append(txt(m,trimBase,c["subtitle"],2.5*u,"#c3cedb",F_BODY,"600"))
     o.append(txt(m,trimBase-3.4*u,c["model"],8.4*u,"#fff",F_COND,"800",upper=True,ls=-1))
     o.append(txt(m,trimBase-3.4*u-7.6*u,f'{c["year"]} · {c["make"]}',2.4*u,acc,F_COND,"700",upper=True,ls=3))
     o.append(f'<line x1="{m}" y1="{specsT:.1f}" x2="{W-m}" y2="{specsT:.1f}" stroke="#ffffff33"/>')
     o.append(f'<line x1="{m}" y1="{specsB:.1f}" x2="{W-m}" y2="{specsB:.1f}" stroke="#ffffff33"/>')
     colw=(W-2*m)/3
-    for i,(b,s) in enumerate([(c["km"],"KM"),(c["eng"],"Engine"),(c["drive"],"Drivetrain")]):
+    slots=[(sp.get("value") or "", sp.get("label") or "") for sp in c.get("specs",[])][:3]
+    for i,(b,s) in enumerate(slots):
         cxx=m+colw*(i+0.5)
         if i>0: o.append(f'<line x1="{m+colw*i:.1f}" y1="{specsT+1.2*u:.1f}" x2="{m+colw*i:.1f}" y2="{specsB-1.2*u:.1f}" stroke="#ffffff24"/>')
         o.append(txt(cxx,specsT+4.6*u,b,3.1*u,"#fff",F_COND,"800",anchor="middle"))
@@ -164,13 +185,25 @@ def velocity(W,H,c):
     o.append("</svg>"); return "".join(o)
 
 def main():
-    import shutil
-    if os.path.isdir("output/svg"): shutil.rmtree("output/svg")
-    os.makedirs("output/svg",exist_ok=True)
-    n=0
-    for ck in ORDER:
-        c=dict(CARS[ck]); c["key"]=ck
-        for fmt,(W,H) in FORMATS.items():
-            open(f"output/svg/{ck}_{fmt}.svg","w").write(velocity(W,H,c)); n+=1
-    print("generated",n,"velocity svg files")
-if __name__=="__main__": main()
+    import shutil, sys
+    env = sys.argv[1] if len(sys.argv) > 1 else "production"
+    out = os.path.join(HERE, "output", "svg")
+    if os.path.isdir(out):
+        shutil.rmtree(out)
+    os.makedirs(out, exist_ok=True)
+
+    items = load_items(env)
+    if not items:
+        raise SystemExit(f"nothing published in {env}/")
+
+    n = 0
+    for item in items:
+        c = dict(item); c["key"] = item["slug"]
+        for fmt, (W, H) in FORMATS.items():
+            with open(os.path.join(out, f'{item["slug"]}_{fmt}.svg'), "w", encoding="utf-8") as fh:
+                fh.write(velocity(W, H, c))
+            n += 1
+    print(f"generated {n} velocity svg files from {env}/ ({len(items)} items)")
+
+if __name__ == "__main__":
+    main()
