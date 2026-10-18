@@ -82,7 +82,7 @@ def hero_src(car):
     return next(iter(car["jpg"].values()), "")
 
 # ---------- HTML fragments ----------
-def page(title, body, css_prefix, nav_html):
+def page(title, body, css_prefix):
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -98,18 +98,10 @@ def page(title, body, css_prefix, nav_html):
 <body>
 <div class="bar"><div class="bar-in">
   <a class="brand" href="{css_prefix}index.html"><i></i>Autoline Ads</a>
-  <nav>{nav_html}</nav>
 </div></div>
 {body}
 </body>
 </html>"""
-
-def env_nav(current, prefix):
-    out = []
-    for key, label, _ in ENVS:
-        cls = "here" if key == current else ""
-        out.append(f'<a class="{cls}" href="{prefix}{key}/index.html">{esc(label)}</a>')
-    return "".join(out)
 
 def build_landing(found):
     cards = ""
@@ -136,10 +128,9 @@ def build_landing(found):
     <footer><span class="brand" style="font-size:14px"><i></i>Autoline Studio</span>
       <span>Velocity direction · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
   </div>"""
-    return page("Autoline — Vehicle Ad Portal", body, "", env_nav(None, ""))
+    return page("Autoline — Vehicle Ad Portal", body, "")
 
 def build_env_index(key, label, desc, cars):
-    nav = env_nav(key, "../")
     if not cars:
         board = '<div class="empty">No vehicles in this environment yet. Add image files to <code>'+key+'/ads/jpg/</code> and they will appear here automatically.</div>'
     else:
@@ -170,10 +161,9 @@ def build_env_index(key, label, desc, cars):
     <footer><a class="brand" style="font-size:14px" href="../index.html"><i></i>All environments</a>
       <span>{len(cars)} vehicle{'s' if len(cars)!=1 else ''} · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
   </div>"""
-    return page(f"Autoline — {label}", body, "../", nav)
+    return page(f"Autoline — {label}", body, "../")
 
 def build_car_page(key, label, car):
-    nav = env_nav(key, "../../")
     blocks = ""
     for f in fmt_list(car):
         lbl, size = FORMAT_LABELS.get(f, (f.title(), ""))
@@ -201,7 +191,7 @@ def build_car_page(key, label, car):
     <footer><a class="brand" style="font-size:14px" href="index.html"><i></i>Back to {esc(label)}</a>
       <span>Velocity direction</span></footer>
   </div>"""
-    return page(f"{car['name']} — Autoline {label}", body, "../../", nav)
+    return page(f"{car['name']} — Autoline {label}", body, "../../")
 
 def main():
     if os.path.isdir(OUT):

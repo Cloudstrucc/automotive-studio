@@ -19,11 +19,6 @@ img{display:block;max-width:100%}
 .bar-in{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--cond);font-weight:800;text-transform:uppercase;letter-spacing:.01em;font-size:16px}
 .brand i{width:14px;height:14px;background:var(--acc);clip-path:polygon(0 0,100% 0,65% 100%,0 100%)}
-.bar nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-.bar nav a{font-family:var(--cond);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;
-  color:var(--soft);padding:7px 12px;border-radius:8px;border:1px solid transparent}
-.bar nav a:hover{color:var(--ink);border-color:var(--line)}
-.bar nav a.here{color:var(--acc-ink);background:var(--acc)}
 
 /* env badge */
 .badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--cond);font-weight:800;text-transform:uppercase;
