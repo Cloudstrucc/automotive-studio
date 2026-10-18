@@ -9,7 +9,7 @@ CARS = {
  "mercedes": dict(year="2014", make="Mercedes-Benz", model="E 350",          trim="4MATIC · Premium",     body="Sedan",     drive="AWD",     km="126,000", price="17,900", eng="3.5L V6", tag="Luxury AWD"),
  "santafe":  dict(year="2017", make="Hyundai",        model="Santa Fe Sport", trim="2.4L · Heated Seats",  body="SUV",       drive="FWD/AWD", km="107,000", price="14,000", eng="2.4L I4", tag="Certified"),
  "elantra":  dict(year="2016", make="Hyundai",        model="Elantra GT",     trim="GLS · Hatchback",      body="Hatchback", drive="FWD",     km="96,000", price="12,000", eng="2.0L I4", tag="Fuel Saver"),
- "buick":    dict(year="2019", make="Buick",          model="LaCrosse",       trim="Premium · Leather",    body="Sedan",     drive="FWD",     km="83,000", price="11,500", eng="3.6L V6", tag="Showroom Ready"),
+ "buick":    dict(year="2013", make="Buick",          model="LaCrosse",       trim="Premium · Leather",    body="Sedan",     drive="FWD",     km="83,000", price="11,500", eng="3.6L V6", tag="Showroom Ready"),
 }
 ORDER=["sienna","mercedes","santafe","elantra","buick"]
 PHONE="1 613 447 4520"

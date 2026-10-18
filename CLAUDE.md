@@ -36,7 +36,7 @@ SVGs in `<env>/ads/svg/`:
 | mercedes | 2014 | Mercedes-Benz E 350 4MATIC | 126,000 | $17,900 |
 | santafe | 2017 | Hyundai Santa Fe Sport 2.4L | 107,000 | $14,000 |
 | elantra | 2016 | Hyundai Elantra GT GLS | 96,000 | $12,000 |
-| buick | 2019 | Buick LaCrosse Premium | 83,000 | $11,500 |
+| buick | 2013 | Buick LaCrosse Premium | 83,000 | $11,500 |
 
 Model years are set (no placeholders left). Dealer name was removed; contact printed on the ads is the phone
 number **and** the email **omarranwar58@gmail.com** — both also appear on the landing page, each lineup board
