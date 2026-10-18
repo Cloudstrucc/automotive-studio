@@ -10,14 +10,25 @@ redeploys on every push.
 - 🟢 `production/` — approved, publish-ready ads → `/<repo>/production/`
 - 🟠 `review/` — shared with the client for sign-off (UAT) → `/<repo>/review/`
 - 🔵 `development/` — work in progress → `/<repo>/development/`
-- Landing page at `/<repo>/` links to all three.
+- `/<repo>/` is a **complete copy of `production/`**, so a client opening the bare URL never sees
+  an environment name in the text or in any path. Share the other two by direct link.
+
+**The site never names an environment.** No badges, no labels, no "Production" in a title or
+crumb — every board is just "The Lineup". The folder names survive only in URLs and in `ENVS`
+in `build.py`; `PUBLIC_ENV` there picks which one the root mirrors. Keep it that way when adding
+pages.
 
 Owner: Fred Pearson (CloudStrucc). Market: Ottawa / Ontario. Contact printed on ads: **1 613 447 4520**
 and **omarranwar58@gmail.com**.
 
 ## How the site is generated
 - `build.py` (Python stdlib only) scans each environment's `ads/jpg/` folder, groups files by
-  vehicle, and generates: the landing page, each environment's lineup board, and a page per vehicle.
+  vehicle, and generates, for the root and for each environment: a lineup board, a page per
+  vehicle, and a page per vehicle *per format* (`cars/<id>-<format>.html`).
+- Clicking an ad opens its format page — breadcrumbed, with JPG **and** SVG download buttons —
+  rather than dumping the raw JPG into a bare tab.
+- Year and price shown in HTML are **parsed out of the ad SVG** by `ad_facts()`, so the image
+  stays the single source of truth. `cars.json` may override either.
 - `.github/workflows/deploy.yml` runs `build.py` on every push to `main` and deploys `_site/` to Pages.
 - `assets/style.css` is the shared stylesheet (Velocity dark theme). Edit the look here.
 - `_site/` is build output — **never commit it** (see `.gitignore`).
@@ -27,7 +38,8 @@ Ad images live in `<env>/ads/jpg/` named **`<vehicleId>_<format>.jpg`**, with ma
 SVGs in `<env>/ads/svg/`:
 - Everything before the **last** underscore is the vehicle id (`buick`, `santafe`, `elantra`…).
 - Format is `social` (4:5, 1080×1350), `phone` (9:19.5, 1080×2340), or `landscape` (16:9, 1920×1080).
-- `<env>/cars.json` maps a vehicle id → `{name, subtitle, order}` (optional; ids default to title-case).
+- `<env>/cars.json` maps a vehicle id → `{name, subtitle, order}`, plus optional `year` / `price`
+  overrides (ids default to title-case; year and price otherwise come from the SVG).
 
 ## Current lineup (prices are printed on the images, not in cars.json)
 | id | Year | Vehicle | KM | Price |

@@ -14,11 +14,15 @@ from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT  = os.path.join(ROOT, "_site")
+# Folder names only. They are never printed on the site: the pages carry no
+# environment wording, so a client given a direct link sees just the lineup.
 ENVS = [
-    ("production",  "Production", "Live ads approved for publishing."),
-    ("review",      "Review (UAT)", "Awaiting client / stakeholder sign-off."),
-    ("development", "Development", "Work in progress — not for sharing yet."),
+    ("production",  "Live ads approved for publishing."),
+    ("review",      "Awaiting client / stakeholder sign-off."),
+    ("development", "Work in progress — not for sharing yet."),
 ]
+# Which environment the site root mirrors.
+PUBLIC_ENV = "production"
 FORMAT_LABELS = {          # known formats, in display order, with pixel sizes
     "social":    ("Social",    "1080 × 1350 · 4:5 feed"),
     "phone":     ("Phone",     "1080 × 2340 · 9:19.5 story"),
@@ -65,9 +69,27 @@ def scan_env(env):
         c["name"] = m.get("name") or titleize(slug)
         c["subtitle"] = m.get("subtitle", "")
         c["order"] = m.get("order", 999)
+        # cars.json wins if it states them; otherwise read them off the ad
+        hero = c["svg"].get("social") or next(iter(c["svg"].values()), None)
+        y, pr = ad_facts(os.path.join(ROOT, env, hero)) if hero else (None, None)
+        c["year"] = str(m.get("year") or y or "")
+        c["price"] = str(m.get("price") or pr or "")
         out.append(c)
     out.sort(key=lambda c: (c["order"], c["name"].lower()))
     return out
+
+def ad_facts(svg_path):
+    """Pull the year and price off a generated ad, so the HTML never restates them by hand.
+
+    The ads print "<year> · <MAKE>" above the model and "$<price>" in the corner flash;
+    anything we cannot find just comes back as None and the page omits it."""
+    try:
+        svg = open(svg_path, encoding="utf-8").read()
+    except OSError:
+        return None, None
+    y = re.search(r">(\d{4})\s*·\s*[^<]+<", svg)
+    p = re.search(r">(\$[\d,]+)<", svg)
+    return (y.group(1) if y else None), (p.group(1) if p else None)
 
 def fmt_list(car):
     """Known formats first in order, then any extras found."""
@@ -86,8 +108,11 @@ PHONE      = "1 613 447 4520"
 PHONE_HREF = "tel:+16134474520"
 EMAIL      = "omarranwar58@gmail.com"
 
+LEDE = ("Every card is a complete ad — price, mileage and contact are printed on the image. "
+        "Open a vehicle to preview each format and download the files.")
+
 def contact(small=False):
-    """Phone + email, shown on the landing page, each lineup board and each vehicle page."""
+    """Phone + email, shown on the lineup, each vehicle page and each format view."""
     cls = "contact sm" if small else "contact"
     return f"""<div class="{cls}">
       <span class="ct-label">Call or email</span>
@@ -103,7 +128,7 @@ def page(title, body, css_prefix, home):
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title>
-<meta name="description" content="Pre-owned vehicle ad concepts — Velocity direction.">
+<meta name="description" content="Pre-owned vehicle ads — Velocity direction.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
@@ -117,50 +142,48 @@ def page(title, body, css_prefix, home):
 </body>
 </html>"""
 
-def build_landing(found):
-    cards = ""
-    for key, label, desc in ENVS:
-        cars = found.get(key, [])
-        cards += f"""
-      <a class="env-card {key}" href="{key}/index.html">
-        <span class="badge {key}">{esc(label)}</span>
-        <h2>{esc(label)}</h2>
-        <p>{esc(desc)}</p>
-        <span class="count">{len(cars)} vehicle{'s' if len(cars)!=1 else ''}</span> &nbsp;·&nbsp;
-        <span class="go">Open →</span>
-      </a>"""
-    body = f"""
-  <div class="wrap">
-    <header class="hero">
-      <p class="eyebrow">Autoline · Vehicle Ad Portal</p>
-      <h1>Pre-Owned<br>Ad Portal</h1>
-      <p class="lede">Velocity-direction ads for the current lineup, across three environments. Pick an environment to browse the vehicles, preview each format, and download the files.</p>
-      {contact()}
-      <div class="note"><b>Environments.</b> <b>Development</b> is the working copy, <b>Review</b> is what you share for sign-off, and <b>Production</b> is the approved, publish-ready set. Each updates automatically whenever its folder changes.</div>
-    </header>
-    <div class="envs">{cards}
-    </div>
-    <footer><span class="brand" style="font-size:14px"><i></i>Autoline Studio</span>
-      <span>Velocity direction · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
-  </div>"""
-    return page("Autoline — Vehicle Ad Portal", body, "", "index.html")
+def crumbs(*parts):
+    """parts: (label, href) — href None for the current page."""
+    out = []
+    for i, (label, href) in enumerate(parts):
+        if i:
+            out.append('<span class="sep">/</span>')
+        if href:
+            out.append(f'<a href="{esc(href)}">{esc(label)}</a>')
+        else:
+            out.append(f'<span aria-current="page">{esc(label)}</span>')
+    return f'<nav class="crumbs" aria-label="Breadcrumb">{"".join(out)}</nav>'
 
-def build_env_index(key, label, desc, cars):
+def dl_links(car, f, prefix):
+    """Download buttons for a format — always both the JPG and, when present, the SVG."""
+    out = f'<a class="dl-jpg" href="{prefix}{esc(car["jpg"][f])}" download>Download JPG</a>'
+    if f in car["svg"]:
+        out += f'<a class="dl-svg" href="{prefix}{esc(car["svg"][f])}" download>Download SVG</a>'
+    return out
+
+# ---------- pages ----------
+def build_board(cars, css):
+    """The lineup. Lives at the site root and at each environment folder."""
     if not cars:
-        board = '<div class="empty">No vehicles in this environment yet. Add image files to <code>'+key+'/ads/jpg/</code> and they will appear here automatically.</div>'
+        board = ('<div class="empty">No vehicles yet. Add image files to <code>ads/jpg/</code> '
+                 'and they will appear here automatically.</div>')
     else:
         items = ""
         for c in cars:
+            yr = f'<span class="yr">{esc(c["year"])}</span> ' if c["year"] else ""
+            sub = esc(c["subtitle"])
+            if c["price"]:
+                sub = f'{sub} · <span class="price">{esc(c["price"])}</span>' if sub else f'<span class="price">{esc(c["price"])}</span>'
             links = f'<a class="open" href="cars/{esc(c["slug"])}.html">Open</a>'
             for f in fmt_list(c):
                 lbl = FORMAT_LABELS.get(f, (f.title(),))[0]
-                links += f'<a href="{esc(c["jpg"][f])}" download>{esc(lbl)}</a>'
+                links += f'<a href="cars/{esc(c["slug"])}-{esc(f)}.html">{esc(lbl)}</a>'
             items += f"""
         <article class="card">
           <a class="thumb" href="cars/{esc(c["slug"])}.html"><img loading="lazy" src="{esc(hero_src(c))}" alt="{esc(c["name"])} ad"></a>
           <div class="meta">
-            <h3>{esc(c["name"])}</h3>
-            <p>{esc(c["subtitle"])}</p>
+            <h3>{yr}{esc(c["name"])}</h3>
+            <p>{sub}</p>
             <div class="links">{links}</div>
           </div>
         </article>"""
@@ -168,75 +191,112 @@ def build_env_index(key, label, desc, cars):
     body = f"""
   <div class="wrap">
     <header class="hero">
-      <span class="badge {key}">{esc(label)}</span>
-      <h1 style="margin-top:14px">The Lineup</h1>
-      <p class="lede">{esc(desc)} Tap a vehicle to see all three ad formats and download the files. Every card is a complete ad — price, mileage and contact are on the image.</p>
+      <p class="eyebrow">Autoline · Pre-Owned</p>
+      <h1>The Lineup</h1>
+      <p class="lede">{LEDE}</p>
       {contact()}
     </header>
     {board}
-    <footer><span class="brand" style="font-size:14px"><i></i>{esc(label)}</span>
+    <footer><span class="brand" style="font-size:14px"><i></i>Autoline</span>
       <span>{len(cars)} vehicle{'s' if len(cars)!=1 else ''} · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
   </div>"""
-    return page(f"Autoline — {label}", body, "../", "index.html")
+    return page("Autoline — The Lineup", body, css, "index.html")
 
-def build_car_page(key, label, car):
+def build_car_page(car, css):
+    """One vehicle: every format, each opening its own page rather than a bare JPG."""
+    title = esc(f'{car["year"]} {car["name"]}'.strip())
+    sub = " · ".join(x for x in (car["subtitle"], car["price"]) if x)
+    sub = esc(sub)
     blocks = ""
     for f in fmt_list(car):
         lbl, size = FORMAT_LABELS.get(f, (f.title(), ""))
-        jpg = car["jpg"][f]
-        svg = car["svg"].get(f)
-        dl = f'<a href="../{esc(jpg)}" download>JPG</a>'
-        if svg:
-            dl += f'<a class="svg" href="../{esc(svg)}" download>SVG</a>'
+        view = f'{esc(car["slug"])}-{esc(f)}.html'
         blocks += f"""
         <div class="fmt f-{esc(f)}"><figure>
-          <a class="shot" href="../{esc(jpg)}" target="_blank" rel="noopener"><img loading="lazy" src="../{esc(jpg)}" alt="{esc(car['name'])} — {esc(lbl)}"></a>
-          <figcaption><span class="fl">{esc(lbl)}</span><span class="fs">{esc(size)}</span>
-            <span class="dl">{dl}</span></figcaption>
+          <a class="shot" href="{view}"><img loading="lazy" src="../{esc(car["jpg"][f])}" alt="{esc(car['name'])} — {esc(lbl)}"></a>
+          <figcaption><span class="fl"><a href="{view}">{esc(lbl)}</a></span><span class="fs">{esc(size)}</span>
+            <span class="dl">{dl_links(car, f, "../")}</span></figcaption>
         </figure></div>"""
     body = f"""
   <div class="wrap">
-    <p class="crumb"><a href="index.html">← {esc(label)}</a></p>
+    {crumbs(("The Lineup", "../index.html"), (f"{car['year']} {car['name']}".strip(), None))}
     <div class="car-title">
-      <div><span class="badge {key}">{esc(label)}</span>
-        <h1 style="margin-top:12px">{esc(car['name'])}</h1>
-        <p class="lede" style="margin-top:6px">{esc(car['subtitle'])}</p>
+      <div><h1>{title}</h1>
+        <p class="lede" style="margin-top:6px">{sub}</p>
         {contact(small=True)}</div>
     </div>
     <div class="formats">{blocks}
     </div>
-    <footer><a class="brand" style="font-size:14px" href="index.html"><i></i>Back to {esc(label)}</a>
+    <footer><a class="brand" style="font-size:14px" href="../index.html"><i></i>Back to the lineup</a>
       <span>Velocity direction</span></footer>
   </div>"""
-    return page(f"{car['name']} — Autoline {label}", body, "../../", "../index.html")
+    return page(f"{car['year']} {car['name']} — Autoline".strip(), body, css, "../index.html")
+
+def build_format_page(car, f, css):
+    """A single ad format, with breadcrumbs and both downloads."""
+    lbl, size = FORMAT_LABELS.get(f, (f.title(), ""))
+    others = ""
+    for g in fmt_list(car):
+        if g == f:
+            continue
+        glbl = FORMAT_LABELS.get(g, (g.title(),))[0]
+        others += f'<a href="{esc(car["slug"])}-{esc(g)}.html">{esc(glbl)}</a>'
+    other_block = f'<div class="also"><span>Other formats</span>{others}</div>' if others else ""
+    body = f"""
+  <div class="wrap">
+    {crumbs(("The Lineup", "../index.html"), (f"{car['year']} {car['name']}".strip(), f"{car['slug']}.html"), (lbl, None))}
+    <div class="view-head">
+      <div><h1>{esc(f"{car['year']} {car['name']}".strip())}</h1>
+        <p class="lede" style="margin-top:6px">{esc(lbl)} · {esc(size)}</p></div>
+      <div class="view-dl">{dl_links(car, f, "../")}</div>
+    </div>
+    <div class="viewer f-{esc(f)}">
+      <img src="../{esc(car["jpg"][f])}" alt="{esc(car['name'])} — {esc(lbl)}">
+    </div>
+    {other_block}
+    {contact()}
+    <footer><a class="brand" style="font-size:14px" href="{esc(car['slug'])}.html"><i></i>Back to {esc(car['name'])}</a>
+      <span>{esc(lbl)} · {esc(size)}</span></footer>
+  </div>"""
+    return page(f"{car['year']} {car['name']} {lbl} — Autoline".strip(), body, css, "../index.html")
+
+# ---------- emit ----------
+def emit(cars, out_dir, css_board, css_car):
+    """Write a complete, self-contained lineup into out_dir."""
+    os.makedirs(os.path.join(out_dir, "cars"), exist_ok=True)
+    open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8").write(build_board(cars, css_board))
+    for c in cars:
+        open(os.path.join(out_dir, "cars", f"{c['slug']}.html"), "w", encoding="utf-8").write(build_car_page(c, css_car))
+        for f in fmt_list(c):
+            open(os.path.join(out_dir, "cars", f"{c['slug']}-{f}.html"), "w", encoding="utf-8").write(build_format_page(c, f, css_car))
 
 def main():
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
     os.makedirs(OUT, exist_ok=True)
-    # shared assets + jekyll bypass
     shutil.copytree(os.path.join(ROOT, "assets"), os.path.join(OUT, "assets"))
     open(os.path.join(OUT, ".nojekyll"), "w").close()
 
-    found = {}
-    for key, label, desc in ENVS:
-        found[key] = scan_env(key)
+    found = {key: scan_env(key) for key, _ in ENVS}
 
-    # landing
-    open(os.path.join(OUT, "index.html"), "w", encoding="utf-8").write(build_landing(found))
+    # Site root: a complete copy of PUBLIC_ENV, so a client opening the bare URL
+    # never sees an environment name in the page text or in any path.
+    root_cars = found.get(PUBLIC_ENV, [])
+    src_ads = os.path.join(ROOT, PUBLIC_ENV, "ads")
+    if os.path.isdir(src_ads):
+        shutil.copytree(src_ads, os.path.join(OUT, "ads"))
+    emit(root_cars, OUT, "", "../")
+    print(f"  root: {len(root_cars)} vehicles (from {PUBLIC_ENV})")
 
-    # each environment
-    for key, label, desc in ENVS:
+    # Each environment keeps its own URL so direct links stay valid.
+    for key, _ in ENVS:
         cars = found[key]
         env_out = os.path.join(OUT, key)
-        os.makedirs(os.path.join(env_out, "cars"), exist_ok=True)
-        # copy this env's ad files
-        src_ads = os.path.join(ROOT, key, "ads")
-        if os.path.isdir(src_ads):
-            shutil.copytree(src_ads, os.path.join(env_out, "ads"))
-        open(os.path.join(env_out, "index.html"), "w", encoding="utf-8").write(build_env_index(key, label, desc, cars))
-        for c in cars:
-            open(os.path.join(env_out, "cars", f"{c['slug']}.html"), "w", encoding="utf-8").write(build_car_page(key, label, c))
+        os.makedirs(env_out, exist_ok=True)
+        src = os.path.join(ROOT, key, "ads")
+        if os.path.isdir(src):
+            shutil.copytree(src, os.path.join(env_out, "ads"))
+        emit(cars, env_out, "../", "../../")
         print(f"  {key}: {len(cars)} vehicles")
 
     print(f"Built -> {OUT}")

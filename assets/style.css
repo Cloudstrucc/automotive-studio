@@ -75,8 +75,11 @@ h1{font-family:var(--cond);font-weight:800;font-size:clamp(32px,6.5vw,60px);line
 .card .links a.open{color:var(--acc-ink);background:var(--acc);border-color:var(--acc)}
 
 /* car detail */
-.crumb{margin:26px 0 0;font-family:var(--cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--soft)}
-.crumb a:hover{color:var(--acc)}
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:26px 0 0;
+  font-family:var(--cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--soft)}
+.crumbs a:hover{color:var(--acc)}
+.crumbs .sep{color:var(--dim)}
+.crumbs [aria-current="page"]{color:var(--ink)}
 .car-title{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:14px 0 4px}
 .car-title h1{font-size:clamp(26px,4.4vw,40px)}
 .formats{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin:26px 0 10px;align-items:start}
@@ -91,8 +94,9 @@ h1{font-family:var(--cond);font-weight:800;font-size:clamp(32px,6.5vw,60px);line
 .fmt .dl{margin-left:auto;display:flex;gap:7px}
 .fmt .dl a{font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
   color:var(--acc-ink);background:var(--acc);border-radius:7px;padding:6px 11px}
-.fmt .dl a.svg{color:var(--soft);background:transparent;border:1px solid var(--line)}
-.fmt .dl a.svg:hover{color:var(--acc);border-color:var(--acc)}
+.fmt .dl a.dl-svg{color:var(--soft);background:transparent;border:1px solid var(--line)}
+.fmt .dl a.dl-svg:hover{color:var(--acc);border-color:var(--acc)}
+.fmt .fl a:hover{color:var(--acc)}
 
 footer{margin:64px 0 50px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .empty{margin:40px 0;padding:40px;text-align:center;color:var(--dim);border:1px dashed var(--line);border-radius:14px}
@@ -114,3 +118,27 @@ footer{margin:64px 0 50px;padding-top:22px;border-top:1px solid var(--line);colo
   .contact{gap:4px 14px}
   .ct-label{width:100%}
 }
+
+
+/* single-format viewer */
+.view-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin:14px 0 0}
+.view-head h1{font-size:clamp(24px,4vw,38px)}
+.view-dl{display:flex;gap:9px;flex-wrap:wrap}
+.view-dl a{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--acc-ink);background:var(--acc);border-radius:8px;padding:9px 15px;white-space:nowrap}
+.view-dl a.dl-svg{color:var(--soft);background:transparent;border:1px solid var(--line)}
+.view-dl a.dl-svg:hover{color:var(--acc);border-color:var(--acc)}
+.viewer{margin:22px 0 0;background:#05070b;border:1px solid var(--line);border-radius:14px;
+  padding:18px;display:flex;align-items:center;justify-content:center}
+.viewer img{max-width:100%;height:auto;border-radius:6px}
+.viewer.f-phone img{max-height:78vh;width:auto}
+.viewer.f-social img{max-height:74vh;width:auto}
+.also{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0 0;
+  font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.also span{color:var(--dim)}
+.also a{color:var(--soft);border:1px solid var(--line);border-radius:7px;padding:7px 12px}
+.also a:hover{color:var(--acc);border-color:var(--acc)}
+
+/* year + price on the lineup cards */
+.card .yr{color:var(--acc);font-family:var(--cond);font-weight:800;letter-spacing:.02em}
+.card .price{color:var(--ink);font-weight:700}
