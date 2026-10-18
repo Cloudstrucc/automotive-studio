@@ -135,8 +135,10 @@ pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:
 'use strict';
 
 /* ---------- configuration ----------
-   Spec slots per catalogue. These mirror manifests/catalogues/<slug>.json in the repo;
-   a catalogue supplies default labels and an item may override any of them. */
+   Catalogues and their three spec-slot labels. Held here rather than in the repository
+   for now: items carry their own labels, so this is only the default offered when
+   adding one. Moving them to manifests/catalogues/ is what would let the client
+   create a catalogue without a deploy. */
 const TARGET_ENV = 'development';
 const SITE = 'https://cloudstrucc.github.io/automotive-studio';
 const TARGET_URL = `${SITE}/${TARGET_ENV}/`;
@@ -330,10 +332,9 @@ async function askForPlan(){
   S.busy = false; render();
 }
 
-/* ---------- what a publish would send ----------
-   The repository write is deliberately not wired: an Artifact can only reach GitHub
-   through an MCP connector exposing callable tools, and this account has none. The
-   payload below is exactly what the write step will send once that path exists. */
+/* ---------- the commit ----------
+   One manifest plus any new photos. An edit keeps the item's slug, order and kicker,
+   and keeps its existing photos unless new ones replace them. */
 function buildPayload(){
   const f = S.plan.fields;
   const e = S.editing;
@@ -736,7 +737,7 @@ function vResult(){
         ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the preview site'}
       </button>
       <button class="btn ghost" onclick="downloadPayload()">Save the payload</button>
-      <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];go('workspace')">
+      <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];S.editing=null;go('workspace')">
         Discard
       </button>
     </div>`;
