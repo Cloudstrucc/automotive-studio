@@ -1,15 +1,17 @@
 name: Build and deploy site
 
-# Rebuilds and redeploys the GitHub Pages site on every push to main —
-# which includes any add / update / delete of an image in the
-# production/, review/ or development/ ad folders.
+# Rebuilds and redeploys the GitHub Pages site on every push to main.
+#
+# When an environment's manifests or source photos change — which is what the admin
+# writes when someone publishes — that environment's ads are re-rendered first and
+# committed back, so the repository stays the source of truth for what the site shows.
 on:
   push:
     branches: [main]
   workflow_dispatch:      # lets you trigger a rebuild manually from the Actions tab
 
 permissions:
-  contents: read
+  contents: write         # write: the ad regeneration commits its output back
   pages: write
   id-token: write
 
@@ -23,11 +25,84 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # needed to diff against the previous push
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Work out which environments need their ads re-rendered
+        id: envs
+        run: |
+          before='${{ github.event.before }}'
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            # first push, a force-push, or a manual run: look at the whole tree
+            changed=$(git ls-files)
+          else
+            changed=$(git diff --name-only "$before" '${{ github.sha }}')
+          fi
+
+          envs=''
+          for e in production review development; do
+            if printf '%s\n' "$changed" | grep -qE "^$e/(manifests|source-photos)/"; then
+              envs="$envs $e"
+            fi
+          done
+          envs=$(printf '%s' "$envs" | xargs || true)
+          echo "list=$envs" >> "$GITHUB_OUTPUT"
+          if [ -n "$envs" ]; then
+            echo "re-rendering: $envs"
+          else
+            echo "no manifest or photo changes; using the committed ads"
+          fi
+
+      # Chromium is ~130 MB; caching it keeps a publish at roughly 30s rather than 75s.
+      - name: Cache the Playwright browser
+        if: steps.envs.outputs.list != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('tools/requirements.txt') }}
+
+      - name: Install the renderer
+        if: steps.envs.outputs.list != ''
+        run: |
+          pip install --disable-pip-version-check -q -r tools/requirements.txt
+          python -m playwright install chromium
+
+      - name: Re-render the ads
+        if: steps.envs.outputs.list != ''
+        run: |
+          for env in ${{ steps.envs.outputs.list }}; do
+            echo "::group::$env"
+            python tools/gen_velocity.py "$env"
+            python tools/render_jpgs.py
+            rm -f "$env"/ads/jpg/*.jpg "$env"/ads/svg/*.svg
+            cp tools/output/jpg/*.jpg "$env/ads/jpg/"
+            cp tools/output/svg/*.svg "$env/ads/svg/"
+            echo "::endgroup::"
+          done
+
+      # Pushes made with GITHUB_TOKEN do not start another workflow run, so this
+      # cannot loop.
+      - name: Commit the re-rendered ads
+        if: steps.envs.outputs.list != ''
+        run: |
+          if [ -z "$(git status --porcelain -- '*/ads/*')" ]; then
+            echo "ads already up to date"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ':/*/ads/*'
+          git commit -m "Re-render ads for ${{ steps.envs.outputs.list }}"
+          git push
+
       - name: Build site
         run: python build.py
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
