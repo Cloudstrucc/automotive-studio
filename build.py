@@ -115,10 +115,10 @@ PHONE      = "1 613 447 4520"
 PHONE_HREF = "tel:+16134474520"
 EMAIL      = "omarranwar58@gmail.com"
 
-LEDE = ("Every card is a complete ad — price, mileage and contact are printed on the image. "
-        "Open a vehicle to preview each format and download the files.")
-APP_LEDE = ("Every card is a complete ad — price, mileage and contact are printed on the image. "
-            "Open a vehicle to see it sized for the screen you are on, and download the files.")
+# Storefront copy. Kept here so the wording lives in one place.
+LEDE = ("Pre-owned vehicles for Ottawa drivers, priced to move. Everything you need to know is "
+        "right on the card — the rest is one phone call away.")
+APP_LEDE = LEDE
 
 def contact(small=False):
     """Phone + email, shown on the lineup, each vehicle page and each format view."""
@@ -208,7 +208,7 @@ def build_board(cars, css, app=False):
     </header>
     {board}
     <footer><span class="brand" style="font-size:14px"><i></i>Autoline</span>
-      <span>{len(cars)} vehicle{'s' if len(cars)!=1 else ''} · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
+      <span>{len(cars)} vehicle{'s' if len(cars)!=1 else ''} available · updated {datetime.now(timezone.utc).strftime('%d %b %Y')}</span></footer>
   </div>"""
     return page("Autoline — The Lineup", body, css, "index.html")
 
@@ -285,14 +285,13 @@ def build_app_car_page(car, css):
     """Promo view: the ad at the viewer's own device size, plus one zip of every file."""
     title = esc(f'{car["year"]} {car["name"]}'.strip())
     sub = esc(" · ".join(x for x in (car["subtitle"], car["price"]) if x))
-    n = sum(len(car[k]) for k in ("jpg", "svg"))
     body = f"""
   <div class="wrap">
     {crumbs(("The Lineup", "../index.html"), (f"{car['year']} {car['name']}".strip(), None))}
     <div class="view-head">
       <div><h1>{title}</h1>
         <p class="lede" style="margin-top:6px">{sub}</p></div>
-      <div class="view-dl"><a class="dl-zip" href="{esc(car['slug'])}-ads.zip" download>Download images ({n} files)</a></div>
+      <div class="view-dl"><a class="dl-zip" href="{esc(car['slug'])}-ads.zip" download>Download photos &amp; artwork</a></div>
     </div>
     <div class="stage">{ad_picture(car, "../")}</div>
     {contact()}
