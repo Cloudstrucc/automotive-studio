@@ -12,7 +12,8 @@ redeploys on every push.
 - 🔵 `development/` — work in progress → `/<repo>/development/`
 - Landing page at `/<repo>/` links to all three.
 
-Owner: Fred Pearson (CloudStrucc). Market: Ottawa / Ontario. Contact printed on ads: **1 613 447 4520**.
+Owner: Fred Pearson (CloudStrucc). Market: Ottawa / Ontario. Contact printed on ads: **1 613 447 4520**
+and **omarranwar58@gmail.com**.
 
 ## How the site is generated
 - `build.py` (Python stdlib only) scans each environment's `ads/jpg/` folder, groups files by
@@ -29,15 +30,17 @@ SVGs in `<env>/ads/svg/`:
 - `<env>/cars.json` maps a vehicle id → `{name, subtitle, order}` (optional; ids default to title-case).
 
 ## Current lineup (prices are printed on the images, not in cars.json)
-| id | Vehicle | KM | Price |
-|---|---|--:|--:|
-| sienna | Toyota Sienna LE | 165,000 | $18,000 |
-| mercedes | Mercedes-Benz E 350 4MATIC | 126,000 | $17,900 |
-| santafe | Hyundai Santa Fe Sport 2.4L | 107,000 | $14,000 |
-| elantra | Hyundai Elantra GT GLS | 96,000 | $12,000 |
-| buick | Buick LaCrosse Premium | 83,000 | $11,500 |
+| id | Year | Vehicle | KM | Price |
+|---|--:|---|--:|--:|
+| sienna | 2016 | Toyota Sienna LE | 165,000 | $18,000 |
+| mercedes | 2014 | Mercedes-Benz E 350 4MATIC | 126,000 | $17,900 |
+| santafe | 2017 | Hyundai Santa Fe Sport 2.4L | 107,000 | $14,000 |
+| elantra | 2016 | Hyundai Elantra GT GLS | 96,000 | $12,000 |
+| buick | 2019 | Buick LaCrosse Premium | 83,000 | $11,500 |
 
-Still placeholder on the ads: **model year** (shown as `20XX`). Dealer name was removed; contact is the phone number.
+Model years are set (no placeholders left). Dealer name was removed; contact printed on the ads is the phone
+number **and** the email **omarranwar58@gmail.com** — both also appear on the landing page, each lineup board
+and each vehicle page. Phone/email live as constants in `build.py` and `tools/gen_velocity.py`.
 
 ## Common tasks
 - **Preview locally:** `python build.py` → open `_site/index.html`.
