@@ -3,3 +3,4 @@ tools/output/
 __pycache__/
 .DS_Store
 .claude/launch.json
+tools/.venv/
