@@ -36,7 +36,9 @@ export default {
       });
     }
 
-    if (request.method !== 'POST') {
+    // Reads are GET; everything else must be POST.
+    const isRead = request.method === 'GET' && url.pathname.startsWith('/api/');
+    if (!isRead && request.method !== 'POST') {
       return json({ error: 'not found' }, 404);
     }
 
@@ -54,11 +56,71 @@ export default {
       return json({ error: 'unauthorized', hint: 'Cloudflare Access is not configured for this Worker' }, 401);
     }
 
-    if (url.pathname === '/api/plan') return handlePlan(request, env);
-    if (url.pathname === '/write')    return handleWrite(request, env);
+    if (url.pathname === '/api/me')    return handleMe(request);
+    if (url.pathname === '/api/items')  return handleItems(request, env);
+    if (url.pathname === '/api/plan')   return handlePlan(request, env);
+    if (url.pathname === '/write')      return handleWrite(request, env);
     return json({ error: 'not found' }, 404);
   },
 };
+
+/* ---------- GET /api/me ----------
+   Cloudflare Access has already verified the assertion before it reaches us, so the
+   payload can be read without re-verifying. */
+function handleMe(request) {
+  const jwt = request.headers.get('cf-access-jwt-assertion');
+  if (!jwt) return json({ ok: true, email: null, via: 'none' });
+  try {
+    const [, payload] = jwt.split('.');
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return json({
+      ok: true,
+      email: claims.email || claims.common_name || null,
+      expires: claims.exp ? new Date(claims.exp * 1000).toISOString() : null,
+      via: 'access',
+    });
+  } catch {
+    return json({ ok: true, email: null, via: 'access' });
+  }
+}
+
+/* ---------- GET /api/items?env=development ----------
+   One recursive tree call finds every manifest, then their blobs are fetched
+   together. The repository is the source of truth; nothing is cached here, so the
+   admin always shows what is actually committed. */
+async function handleItems(request, env) {
+  const url = new URL(request.url);
+  const which = String(url.searchParams.get('env') || 'development');
+  if (!/^[a-z][a-z0-9-]*$/.test(which)) return json({ error: 'bad environment' }, 400);
+
+  const branch = env.BRANCH || 'main';
+  let tree;
+  try {
+    tree = await gh(env, `https://api.github.com/repos/${env.REPO}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+  } catch (e) {
+    return json({ error: `could not read the repository: ${e.message || e}` }, 502);
+  }
+
+  const prefix = `${which}/manifests/items/`;
+  const blobs = (tree.tree || []).filter(n =>
+    n.type === 'blob' && n.path.startsWith(prefix) && n.path.endsWith('.json'));
+
+  const items = await Promise.all(blobs.map(async n => {
+    try {
+      const blob = await gh(env, `https://api.github.com/repos/${env.REPO}/git/blobs/${n.sha}`);
+      const m = JSON.parse(b64decode(blob.content.replace(/\n/g, '')));
+      return { ...m, _path: n.path, _catalogue: n.path.slice(prefix.length).split('/')[0] };
+    } catch {
+      return { _path: n.path, _broken: true, _catalogue: n.path.slice(prefix.length).split('/')[0] };
+    }
+  }));
+
+  items.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || String(a.slug).localeCompare(String(b.slug)));
+
+  const byCatalogue = {};
+  for (const it of items) (byCatalogue[it._catalogue] ||= []).push(it);
+  return json({ ok: true, env: which, catalogues: byCatalogue, count: items.length });
+}
 
 /* ---------- POST /api/plan ----------
    The model never writes anything. It returns a plan object that the page renders
@@ -165,10 +227,12 @@ async function handleWrite(request, env) {
   catch { return json({ error: 'body must be JSON' }, 400); }
 
   const files = Array.isArray(body.files) ? body.files : [];
+  const deletes = Array.isArray(body.deletes) ? body.deletes.map(String) : [];
   const message = String(body.message || 'Update from Autoline admin').slice(0, 200);
 
-  if (!files.length) return json({ error: 'no files' }, 400);
+  if (!files.length && !deletes.length) return json({ error: 'nothing to write' }, 400);
   if (files.length > MAX_FILES) return json({ error: `at most ${MAX_FILES} files` }, 400);
+  if (deletes.length > 40) return json({ error: 'at most 40 deletions' }, 400);
 
   const allow = (env.ALLOW_PREFIXES || '').split(',').map(s => s.trim()).filter(Boolean);
   let total = 0;
@@ -186,6 +250,18 @@ async function handleWrite(request, env) {
     if (total > MAX_BYTES) return json({ error: 'payload too large' }, 413);
   }
 
+  // Deletions obey the same allowlist: they can only remove what they could write.
+  // Rendered ads are deliberately NOT deletable here -- CI rebuilds <env>/ads from
+  // the manifests on every change, so a removed item's ads disappear on their own.
+  for (const path of deletes) {
+    if (path.includes('..') || path.startsWith('/')) {
+      return json({ error: `bad path: ${path}` }, 400);
+    }
+    if (allow.length && !allow.some(p => path.startsWith(p))) {
+      return json({ error: `path not allowed: ${path}` }, 403);
+    }
+  }
+
   // A published item must have at least one image: the ad artwork is built from the
   // photo, so an item without one renders as an empty frame on the live site. Enforced
   // here rather than only in the page, because the page is not the only possible caller.
@@ -197,7 +273,7 @@ async function handleWrite(request, env) {
   }
 
   try {
-    const sha = await commitFiles(env, files, message);
+    const sha = await commitFiles(env, files, message, deletes);
     return json({ ok: true, commit: sha });
   } catch (e) {
     return json({ error: String(e.message || e) }, 502);
@@ -269,7 +345,7 @@ function b64decode(b64) {
  * shorter but commits one file at a time, leaving the repository half-updated if a
  * photo failed after its manifest landed -- and triggering a rebuild per file.
  */
-async function commitFiles(env, files, message) {
+async function commitFiles(env, files, message, deletes = []) {
   const api = p => `https://api.github.com/repos/${env.REPO}${p}`;
   const branch = env.BRANCH || 'main';
 
@@ -284,6 +360,12 @@ async function commitFiles(env, files, message) {
     });
     tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
   }
+
+  // sha: null removes a path from the tree
+  for (const path of deletes) {
+    tree.push({ path, mode: '100644', type: 'blob', sha: null });
+  }
+  if (!tree.length) throw new Error('nothing to commit');
 
   const newTree = await gh(env, api('/git/trees'), {
     method: 'POST',

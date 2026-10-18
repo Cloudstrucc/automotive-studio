@@ -174,6 +174,11 @@ const S = {
   plan:null, busy:false, error:null,
   ready:true, drafts:[],
   publishing:false, published:null,
+  me:null,                      // {email} from the Access assertion
+  items:null,                   // {catalogue: [item]} from the repository
+  loadingItems:false, itemsError:null,
+  editing:null,                 // the item being edited, when not a new one
+  confirmDelete:null,
 };
 
 const $ = s => document.querySelector(s);
@@ -191,13 +196,47 @@ function go(v, slug){
 function boot(){
   paint();
   loadDrafts();
+  loadMe();
+  loadItems();
+}
+
+async function loadMe(){
+  try {
+    const r = await fetch('/api/me');
+    const d = await r.json();
+    if (d?.ok) { S.me = d; paint(); }
+  } catch {}
+}
+
+/* The repository is the source of truth; this reads it rather than keeping a copy,
+   so the admin always shows what is actually committed. */
+async function loadItems(){
+  S.loadingItems = true; S.itemsError = null; render();
+  try {
+    const r = await fetch(`/api/items?env=${encodeURIComponent(TARGET_ENV)}`);
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || `listing returned ${r.status}`);
+    S.items = d.catalogues || {};
+  } catch (e) {
+    S.itemsError = e?.message || 'could not read the catalogue';
+    S.items = null;
+  }
+  S.loadingItems = false; render();
 }
 
 function paint(){
   const chip = $('#capChip'), who = $('#whoChip');
   chip.className = 'chip ok';
-  chip.textContent = 'Ready to publish';
-  who.classList.add('hide');
+  chip.textContent = 'Preview site';
+  if (S.me?.email){
+    who.classList.remove('hide');
+    who.textContent = S.me.email;
+    who.style.cursor = 'pointer';
+    who.title = 'Profile and sign out';
+    who.onclick = () => go('me');
+  } else {
+    who.classList.add('hide');
+  }
   render();
 }
 
@@ -297,16 +336,26 @@ async function askForPlan(){
    payload below is exactly what the write step will send once that path exists. */
 function buildPayload(){
   const f = S.plan.fields;
-  const slug = (f.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const e = S.editing;
+  const slug = e ? e.slug
+    : (f.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const [make, ...rest] = String(f.title || '').trim().split(/\s+/);
   const manifest = {
-    schema: 1, slug, catalogue: S.cat.slug, status: 'published', order: 99,
-    title: f.title, subtitle: f.subtitle, year: f.year, price: f.price,
+    schema: 1, slug, catalogue: S.cat.slug, status: 'published',
+    order: e?.order ?? 99,
+    make: make || null, model: rest.join(' ') || null,
+    subtitle: f.subtitle, year: f.year, price: f.price,
     eyebrow: f.eyebrow,
+    kicker: e?.kicker ?? null,
     specs: f.specs.filter(s => s.value),
-    images: S.photos.map((p,i) => ({
-      file: `source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`,
-      role: i ? 'secondary' : 'primary',
-    })),
+    // keep the existing photos when an edit does not replace them
+    images: S.photos.length
+      ? S.photos.map((p,i) => ({
+          file: `source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`,
+          role: i ? 'secondary' : 'primary',
+        }))
+      : (e?.images || []),
+    ...(e?.background && !S.photos.length ? { background: e.background } : {}),
     audit: { updated_at: new Date().toISOString() },
   };
   return {
@@ -315,8 +364,57 @@ function buildPayload(){
       ...S.photos.map((p,i) => ({
         path:`${TARGET_ENV}/source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, b64:p.b64 })),
     ],
-    message: `Add ${f.year || ''} ${f.title || slug}`.trim() + ` to ${TARGET_ENV}`,
+    message: `${e ? 'Update' : 'Add'} ${f.year || ''} ${f.title || slug}`.replace(/\s+/g,' ').trim()
+             + ` in ${TARGET_ENV}`,
   };
+}
+
+function editItem(slug){
+  const list = (S.items?.[S.cat.slug]) || [];
+  const it = list.find(x => x.slug === slug);
+  if (!it) return;
+  S.editing = it;
+  S.photos = [];                       // existing photos stay unless replaced
+  S.plan = {
+    summary: `Update ${it.year || ''} ${it.make || ''} ${it.model || ''}`.replace(/\s+/g,' ').trim(),
+    fields: {
+      title: [it.make, it.model].filter(Boolean).join(' ') || null,
+      subtitle: it.subtitle ?? null,
+      year: it.year ?? null,
+      price: it.price ?? null,
+      eyebrow: it.eyebrow ?? null,
+      specs: S.cat.specs.map((label, i) => ({
+        label: it.specs?.[i]?.label || label,
+        value: it.specs?.[i]?.value ?? null,
+      })),
+    },
+  };
+  go('plan');
+}
+
+async function deleteItem(slug){
+  const list = (S.items?.[S.cat.slug]) || [];
+  const it = list.find(x => x.slug === slug);
+  if (!it) return;
+  S.publishing = true; S.error = null; render();
+  try {
+    // The manifest and its photos go; CI rebuilds <env>/ads from what remains, so
+    // the rendered ads disappear without being deleted by hand.
+    const deletes = [it._path, ...(it.images || []).map(i => `${TARGET_ENV}/${i.file}`)];
+    if (it.background) deletes.push(`${TARGET_ENV}/${it.background}`);
+    const res = await fetch('/write', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ message:`Remove ${it.slug} from ${TARGET_ENV}`, files: [], deletes }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
+    S.confirmDelete = null;
+    await loadItems();
+  } catch (e) {
+    S.error = 'Could not remove it: ' + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
 }
 
 function saveDraft(){
@@ -349,6 +447,7 @@ async function publish(){
     const out = await res.json().catch(() => ({}));
     if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
     S.published = { commit: out.commit, at: new Date().toISOString() };
+    loadItems();
   } catch (e) {
     S.error = 'Publish failed: ' + (e?.message || 'unknown error');
   }
@@ -390,21 +489,95 @@ function vWorkspace(){
     <p class="lede">Pick an area, describe the change in plain English, and I'll show you
       exactly what I plan to do before anything is written.</p>
     <div class="grid">
-      ${CATALOGUES.map(c => `
-        <button class="tile" onclick="go('task','${c.slug}')">
+      ${CATALOGUES.map(c => {
+        const n = S.items?.[c.slug]?.length;
+        const sub = S.loadingItems ? 'loading…'
+                  : n === undefined ? `Slots: ${esc(c.specs.join(' · '))}`
+                  : `${n} item${n===1?'':'s'} · ${esc(c.specs.join(' · '))}`;
+        return `
+        <button class="tile" onclick="go('catalogue','${c.slug}')">
           <div class="mk">${c.mark}</div>
           <h2>${esc(c.label)}</h2>
-          <p>Slots: ${esc(c.specs.join(' · '))}</p>
+          <p>${sub}</p>
           <div class="go">Open &rarr;</div>
-        </button>`).join('')}
+        </button>`;}).join('')}
     </div>
     ${drafts}`;
 }
 
-function vTask(){
+function vCatalogue(){
+  const list = S.items?.[S.cat.slug] || [];
+  const rows = !S.items ? `<div class="card-b dim">${esc(S.itemsError || 'Loading…')}</div>`
+    : !list.length ? '<div class="card-b dim">Nothing here yet.</div>'
+    : list.map(it => {
+        const name = [it.year, it.make, it.model].filter(Boolean).join(' ') || it.slug;
+        const price = it.price ? `$${esc(it.price)}` : '';
+        const warn = !it.images?.length ? '<span class="tag">no photo</span>' : '';
+        return `<div class="row">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">${esc(name)} ${warn}</div>
+            <div class="dim" style="font-size:12.5px">${esc(it.subtitle || '')} ${price}</div>
+          </div>
+          ${S.confirmDelete === it.slug
+            ? `<button class="btn ghost" onclick="S.confirmDelete=null;render()">Cancel</button>
+               <button class="btn" style="background:#f5a623" onclick="deleteItem('${esc(it.slug)}')"
+                       ${S.publishing?'disabled':''}>
+                 ${S.publishing ? 'Removing…' : 'Really remove'}
+               </button>`
+            : `<button class="btn ghost" onclick="editItem('${esc(it.slug)}')">Edit</button>
+               <button class="btn ghost" onclick="S.confirmDelete='${esc(it.slug)}';render()">Remove</button>`}
+        </div>`;
+      }).join('');
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / ${esc(S.cat.label)}</div>
     <h1>${esc(S.cat.label)}</h1>
+    <p class="lede">What is on the preview site now. Editing or removing republishes it.</p>
+
+    ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div class="card" style="margin-top:22px">
+      <div class="card-h">${list.length} item${list.length===1?'':'s'}
+        <button class="btn ghost" style="margin-left:auto;padding:6px 12px"
+                onclick="loadItems()">Refresh</button></div>
+      ${rows}
+    </div>
+
+    <div style="display:flex;gap:9px;margin-top:18px">
+      <button class="btn" onclick="S.editing=null;S.plan=null;S.text='';S.photos=[];go('task')">
+        Add ${esc(S.cat.label.replace(/s$/,'').toLowerCase())}
+      </button>
+      <button class="btn ghost" onclick="go('workspace')">Back</button>
+    </div>`;
+}
+
+function vMe(){
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Profile</div>
+    <h1>Profile</h1>
+    <div class="card" style="margin-top:22px;max-width:520px">
+      <div class="card-b">
+        <label class="lab">Signed in as</label>
+        <div style="font-weight:600;margin-bottom:16px">${esc(S.me?.email || 'unknown')}</div>
+        <label class="lab">Session</label>
+        <div class="dim" style="margin-bottom:16px">
+          ${S.me?.expires ? 'Expires ' + esc(new Date(S.me.expires).toLocaleString()) : 'Managed by Cloudflare Access'}
+        </div>
+        <label class="lab">Publishing to</label>
+        <div class="dim">${esc(TARGET_ENV)} &middot;
+          <a href="${TARGET_URL}" target="_blank" style="color:var(--acc)">view the preview site</a></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:9px;margin-top:18px">
+      <a class="btn" href="/cdn-cgi/access/logout">Sign out</a>
+      <button class="btn ghost" onclick="go('workspace')">Back</button>
+    </div>`;
+}
+
+function vTask(){
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> /
+      <b onclick="go('catalogue')">${esc(S.cat.label)}</b> / Add</div>
+    <h1>Add to ${esc(S.cat.label)}</h1>
     <p class="lede">What would you like to do?</p>
 
     <div class="acts" style="margin:22px 0">
@@ -466,9 +639,11 @@ function vPlan(){
     </div>`;
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> /
-      <b onclick="go('task')">${esc(S.cat.label)}</b> / Review</div>
-    <h1>Here's what I'll do</h1>
-    <p class="lede">Nothing has been written. Edit anything below, then confirm.</p>
+      <b onclick="go('catalogue')">${esc(S.cat.label)}</b> / ${S.editing ? 'Edit' : 'Review'}</div>
+    <h1>${S.editing ? 'Edit ' + esc([S.editing.year, S.editing.make, S.editing.model].filter(Boolean).join(' ')) : "Here's what I'll do"}</h1>
+    <p class="lede">${S.editing
+      ? 'Change anything below, then publish. Existing photos are kept unless you add new ones.'
+      : 'Nothing has been written. Edit anything below, then confirm.'}</p>
 
     <div class="sum" style="margin-top:20px">${esc(S.plan.summary)}</div>
     <p class="dim" style="font-size:12.5px;margin:0 0 14px">
@@ -521,7 +696,7 @@ function vResult(){
             on the <strong>preview</strong> site. Rebuilds in about a minute.</p>
           <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
             <a class="btn" target="_blank" href="${TARGET_URL}">View the preview site</a>
-            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];go('workspace')">
+            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];S.editing=null;go('workspace')">
               Make another change
             </button>
           </div>
@@ -533,7 +708,7 @@ function vResult(){
     <h1>Ready to publish</h1>
     <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
 
-    ${S.photos.length ? '' : `<div class="note" style="margin-top:20px">
+    ${(S.photos.length || S.editing?.images?.length) ? '' : `<div class="note" style="margin-top:20px">
       <b>This item has no photo.</b> A published item needs at least one &mdash; the ad
       is built from it, so without a photo there is nothing to show. Go back and add one.
     </div>`}
@@ -557,7 +732,7 @@ function vResult(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn" onclick="publish()" ${S.publishing||!S.photos.length?'disabled':''}>
+      <button class="btn" onclick="publish()" ${S.publishing||(!S.photos.length && !S.editing?.images?.length)?'disabled':''}>
         ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the preview site'}
       </button>
       <button class="btn ghost" onclick="downloadPayload()">Save the payload</button>
@@ -570,6 +745,8 @@ function vResult(){
 function render(){
   if (!S.ready){ $('#view').innerHTML = '<p class="dim" style="padding:40px 0">Starting…</p>'; return; }
   const v = S.view==='workspace' ? vWorkspace()
+          : S.view==='catalogue' ? vCatalogue()
+          : S.view==='me'        ? vMe()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()
           : vResult();

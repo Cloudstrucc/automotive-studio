@@ -4,10 +4,16 @@ One Worker serves the whole admin: the workspace page, the assistant, and the co
 endpoint. Runs on the Workers free plan (100,000 requests/day).
 
 ```
-GET  /            the workspace page
-POST /api/plan    description -> validated plan JSON  (Anthropic, server-side)
-POST /write       files -> one commit on an allowlisted path
+GET  /                      the workspace page
+GET  /api/me                who is signed in, from the Access assertion
+GET  /api/items?env=…       every item manifest in an environment
+POST /api/plan              description -> validated plan JSON (Anthropic, server-side)
+POST /write                 files and/or deletes -> one commit on allowlisted paths
 ```
+
+Deleting an item removes its manifest and source photos. Its rendered ads are left
+alone deliberately: CI rebuilds `<env>/ads/` from whatever manifests remain, so they
+disappear on the next build without the admin needing write access to them.
 
 ---
 
