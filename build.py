@@ -82,7 +82,7 @@ def hero_src(car):
     return next(iter(car["jpg"].values()), "")
 
 # ---------- HTML fragments ----------
-def page(title, body, css_prefix):
+def page(title, body, css_prefix, home):
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -97,7 +97,7 @@ def page(title, body, css_prefix):
 </head>
 <body>
 <div class="bar"><div class="bar-in">
-  <a class="brand" href="{css_prefix}index.html"><i></i>Autoline Ads</a>
+  <a class="brand" href="{home}"><i></i>Autoline Ads</a>
 </div></div>
 {body}
 </body>
@@ -128,7 +128,7 @@ def build_landing(found):
     <footer><span class="brand" style="font-size:14px"><i></i>Autoline Studio</span>
       <span>Velocity direction · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
   </div>"""
-    return page("Autoline — Vehicle Ad Portal", body, "")
+    return page("Autoline — Vehicle Ad Portal", body, "", "index.html")
 
 def build_env_index(key, label, desc, cars):
     if not cars:
@@ -158,10 +158,10 @@ def build_env_index(key, label, desc, cars):
       <p class="lede">{esc(desc)} Tap a vehicle to see all three ad formats and download the files. Every card is a complete ad — price, mileage and contact are on the image.</p>
     </header>
     {board}
-    <footer><a class="brand" style="font-size:14px" href="../index.html"><i></i>All environments</a>
+    <footer><span class="brand" style="font-size:14px"><i></i>{esc(label)}</span>
       <span>{len(cars)} vehicle{'s' if len(cars)!=1 else ''} · updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</span></footer>
   </div>"""
-    return page(f"Autoline — {label}", body, "../")
+    return page(f"Autoline — {label}", body, "../", "index.html")
 
 def build_car_page(key, label, car):
     blocks = ""
@@ -191,7 +191,7 @@ def build_car_page(key, label, car):
     <footer><a class="brand" style="font-size:14px" href="index.html"><i></i>Back to {esc(label)}</a>
       <span>Velocity direction</span></footer>
   </div>"""
-    return page(f"{car['name']} — Autoline {label}", body, "../../")
+    return page(f"{car['name']} — Autoline {label}", body, "../../", "../index.html")
 
 def main():
     if os.path.isdir(OUT):
