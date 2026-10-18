@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review the plan — Autoline Workspace</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="b.css">
+</head>
+<body class="b-body">
+<div class="b-bar"><div class="b-bar-in">
+  <a class="b-brand text-decoration-none text-reset" href="b-workspace.html"><i></i>Autoline</a>
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <span class="b-chip b-chip-ok"><i class="bi bi-plug-fill"></i> GitHub connected</span>
+    <span class="b-chip"><i class="bi bi-person-circle"></i> client@example.com</span>
+  </div>
+</div></div>
+<div class="b-wrap">
+  <div class="b-crumbs"><a href="b-workspace.html">Workspace</a> / <a href="b-task.html">Vehicles</a> / Review</div>
+
+  <h1 class="mb-1" style="font-family:Archivo,sans-serif;font-weight:800;font-size:30px">Here's what I'll do</h1>
+  <p class="b-dim mb-4">Nothing has changed yet. Edit anything below, then confirm.</p>
+
+  <div class="b-plan-sum mb-4">
+    <i class="bi bi-stars me-2" style="color:#19e36a"></i>
+    Add a <strong>2017 Hyundai Santa Fe Sport</strong> at <strong>$14,000</strong> to the
+    Vehicles lineup, with one photo. I couldn't tell the drivetrain from your description,
+    so I've left it blank.
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="b-card">
+        <div class="b-card-h"><i class="bi bi-card-list me-2"></i>Fields</div>
+        <div class="b-card-b">
+          <div class="b-field"><label class="b-label">Title</label>
+            <input class="b-input" value="Hyundai Santa Fe Sport"></div>
+          <div class="b-field"><label class="b-label">Subtitle</label>
+            <input class="b-input" value="2.4L &middot; Heated Seats"></div>
+          <div class="b-field"><label class="b-label">Year</label>
+            <input class="b-input" value="2017"></div>
+          <div class="b-field"><label class="b-label">Price</label>
+            <input class="b-input" value="$14,000"></div>
+
+          <hr style="border-color:#1e2731;margin:17px 0">
+          <label class="b-label">Spec slots</label>
+
+          <div class="b-field"><label class="b-label">KM</label>
+            <input class="b-input" value="107,000"></div>
+          <div class="b-field"><label class="b-label">Engine</label>
+            <input class="b-input" value="2.4L I4"></div>
+          <div class="b-field"><label class="b-label">Drivetrain</label>
+            <input class="b-input b-missing" placeholder="not stated">
+            <span class="b-missing-tag">needs you</span></div>
+
+          <p class="b-dim small mt-3 mb-0">
+            Blank fields are ones your description didn't cover. The assistant leaves them
+            empty rather than inventing a value.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="b-card mb-3">
+        <div class="b-card-h"><i class="bi bi-file-earmark-diff me-2"></i>Files that will change</div>
+        <div class="b-card-b">
+          <div class="b-filelist">
+            <div><span class="b-add">+</span> manifests/items/vehicles/santafe.json</div>
+            <div><span class="b-add">+</span> development/ads/jpg/santafe_a.jpg</div>
+            <div><span class="b-dim">~</span> manifests/catalogues/vehicles.json</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="b-card">
+        <div class="b-card-h"><i class="bi bi-shield-check me-2"></i>Where it goes first</div>
+        <div class="b-card-b">
+          <p class="b-dim small mb-0">
+            Changes land in the <strong style="color:#eef2f6">preview site</strong> first.
+            You'll see the finished ad before anything reaches buyers.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mt-4">
+    <a href="b-applying.html" class="b-btn"><i class="bi bi-check2"></i> Looks right &mdash; apply</a>
+    <a href="b-task.html" class="b-ghost-btn">Back</a>
+  </div>
+
+</div>
+</body>
+</html>

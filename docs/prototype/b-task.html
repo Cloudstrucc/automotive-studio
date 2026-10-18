@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicles — Autoline Workspace</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="b.css">
+</head>
+<body class="b-body">
+<div class="b-bar"><div class="b-bar-in">
+  <a class="b-brand text-decoration-none text-reset" href="b-workspace.html"><i></i>Autoline</a>
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <span class="b-chip b-chip-ok"><i class="bi bi-plug-fill"></i> GitHub connected</span>
+    <span class="b-chip"><i class="bi bi-person-circle"></i> client@example.com</span>
+  </div>
+</div></div>
+<div class="b-wrap">
+  <div class="b-crumbs"><a href="b-workspace.html">Workspace</a> / Vehicles</div>
+
+  <h1 class="mb-1" style="font-family:Archivo,sans-serif;font-weight:800;font-size:30px">Vehicles</h1>
+  <p class="b-dim mb-4">What would you like to do?</p>
+
+  <div class="proto-note">
+    <b>Prototype.</b> Actions are a fixed list, so the model is never asked to guess what
+    you want &mdash; only to fill the chosen action's fields from your description.
+  </div>
+
+  <div class="b-actions mb-4">
+    <div class="b-action sel"><i class="bi bi-plus-circle"></i> Add a vehicle</div>
+    <div class="b-action"><i class="bi bi-tag"></i> Change a price</div>
+    <div class="b-action"><i class="bi bi-images"></i> Update photos</div>
+    <div class="b-action"><i class="bi bi-check2-square"></i> Mark as sold</div>
+    <div class="b-action"><i class="bi bi-pencil"></i> Edit landing copy</div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="b-card">
+        <div class="b-card-h"><i class="bi bi-chat-text me-2"></i>Describe the vehicle</div>
+        <div class="b-card-b">
+          <label class="b-label">In your own words</label>
+          <textarea class="b-area" placeholder="e.g. 2017 Santa Fe Sport, 2.4L, 107,000 km, heated seats, front wheel drive, asking 14,000">2017 Santa Fe Sport, 2.4L, 107k km, heated seats, asking 14,000</textarea>
+          <p class="b-dim small mt-2 mb-0">
+            Paste an existing listing if you have one &mdash; anything not mentioned is left
+            blank for you to fill, never guessed.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="b-card">
+        <div class="b-card-h"><i class="bi bi-images me-2"></i>Photos</div>
+        <div class="b-card-b">
+          <div class="b-drop">
+            <i class="bi bi-cloud-arrow-up fs-4 d-block mb-1"></i>
+            <div class="fw-semibold" style="color:#eef2f6">Drop photos here</div>
+            <div class="small">or tap to choose &middot; JPG or PNG</div>
+          </div>
+          <div class="b-thumbs">
+            <div class="b-thumb">
+              <img src="https://cloudstrucc.github.io/automotive-studio/ads/jpg/santafe_social.jpg" alt="">
+              <span>1st</span>
+            </div>
+          </div>
+          <p class="b-dim small mt-2 mb-0">Resized in your browser before upload.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mt-4">
+    <a href="b-plan.html" class="b-btn"><i class="bi bi-stars"></i> Show me the plan</a>
+    <a href="b-workspace.html" class="b-ghost-btn">Cancel</a>
+  </div>
+
+</div>
+</body>
+</html>
