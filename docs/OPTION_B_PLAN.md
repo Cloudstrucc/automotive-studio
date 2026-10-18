@@ -191,15 +191,30 @@ The `mcp` capability resolves connectors **by display name** against the viewer'
 connector list, and that list has no GitHub entry. So there is no name to declare and
 nothing to infer; this is settled rather than pending.
 
-**The write path is therefore a small endpoint of our own:**
+**The write path is therefore a small endpoint of our own — now built**, in
+`admin/write-endpoint/`:
 
 ```
-POST /write   { files: [{path, contentsBase64}], message }   ->  GitHub contents API
+POST /   Authorization: Bearer <WRITE_KEY>
+         { message, files: [{path, contentsBase64}] }   ->  one commit
 ```
 
-A Cloudflare Worker or Azure Function holding a fine-grained, single-repo token. The
-page never sees the credential; it posts a payload and gets a commit sha back. Roughly
-30 lines, free tier, nothing to maintain. Everything else about Option B is unchanged.
+A Cloudflare Worker (free plan: 100k requests/day) holding a fine-grained, single-repo
+token. It commits every file in **one** commit via the git data API, so the repository
+is never half-updated and the site rebuilds once.
+
+Two things keep it narrow:
+
+- `ALLOW_PREFIXES` rejects any path outside `manifests/`, `source-photos/` and
+  `development/`, so even a leaked key cannot touch `.github/workflows/`, `build.py` or
+  `tools/` — it cannot make the site build something you did not write.
+- The GitHub token is scoped to one repository with Contents: read and write only.
+
+**Be precise about what this protects.** The GitHub token never reaches the browser.
+The `WRITE_KEY` does — it lives in the artifact's `config/write` document so the page
+can send it, readable by everyone the artifact is shared with. That is the same set of
+people already trusted to publish, and rotating it is one `wrangler secret put`. It is
+a constrained bearer key in a browser, not a zero-credential design.
 
 The alternative — a fine-grained PAT held in the page's `db` — needs no hosting at all
 but puts a live credential somewhere the page can read, and would require the client to

@@ -1,0 +1,14 @@
+name = "autoline-write"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+REPO = "Cloudstrucc/automotive-studio"
+BRANCH = "main"
+# The safety boundary: nothing outside these prefixes can be written, so a leaked
+# WRITE_KEY cannot reach .github/workflows/, build.py or tools/.
+ALLOW_PREFIXES = "manifests/,source-photos/,development/"
+
+# Secrets are NOT set here. Use:
+#   wrangler secret put GITHUB_TOKEN
+#   wrangler secret put WRITE_KEY

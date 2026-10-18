@@ -170,6 +170,8 @@ const S = {
   plan:null, busy:false, error:null,
   caps:{ sample:null, assets:null, db:null, user:null, downloads:null },
   ready:false, me:null, canEdit:false, drafts:[],
+  conn:null,                    // {endpoint, key} from the shared config doc
+  publishing:false, published:null,
 };
 
 const $ = s => document.querySelector(s);
@@ -200,6 +202,7 @@ async function boot(){
   S.ready = true;
   paint();
   loadDrafts();
+  loadConn();
 }
 
 function paint(){
@@ -208,8 +211,9 @@ function paint(){
   if (!c.sample) missing.push('assistant');
   if (!c.assets) missing.push('uploads');
   if (!c.db)     missing.push('saving');
-  if (!missing.length){ chip.className='chip ok'; chip.textContent='Ready'; }
-  else { chip.className='chip warn'; chip.textContent='Limited: no ' + missing.join(', '); }
+  if (missing.length){ chip.className='chip warn'; chip.textContent='Limited: no ' + missing.join(', '); }
+  else if (!S.conn){ chip.className='chip warn'; chip.textContent='Publishing not set up'; }
+  else { chip.className='chip ok'; chip.textContent='Ready to publish'; }
   who.textContent = S.me?.name || S.me?.email || 'signed in';
   who.classList.toggle('hide', !S.me);
   render();
@@ -222,6 +226,36 @@ async function loadDrafts(){
     S.drafts = (snap?.docs || []).map(d => ({ id:d.id, ...(d.data?.() ?? d.data) }));
     render();
   } catch {}
+}
+
+/* The write endpoint's URL and key live in the artifact's database, not in the page
+   source -- this repository is public. Everyone the artifact is shared with can read
+   them, which is the same set of people already trusted to publish. */
+async function loadConn(){
+  if (!S.caps.db) return;
+  try {
+    const doc = await S.caps.db.doc('config/write').get();
+    const d = doc?.data?.() ?? doc?.data ?? null;
+    if (d?.endpoint && d?.key) S.conn = { endpoint:d.endpoint, key:d.key };
+    paint();
+  } catch {}
+}
+
+async function saveConn(endpoint, key){
+  if (!S.caps.db){ S.error='Saving is unavailable in this view.'; return render(); }
+  try {
+    await S.caps.db.doc('config/write').set({
+      endpoint: endpoint.trim().replace(/\/$/,''),
+      key: key.trim(),
+      savedBy: S.me?.email || 'unknown',
+      savedAt: new Date().toISOString(),
+    });
+    await loadConn();
+    S.error = null; go('workspace');
+  } catch (e) {
+    S.error = 'Could not save the connection: ' + (e?.message || 'write refused');
+    render();
+  }
 }
 
 /* ---------- image handling ----------
@@ -356,6 +390,54 @@ async function saveDraft(){
   S.view = 'result'; render();
 }
 
+/* Turn the plan into a commit. Photos were uploaded to the asset store during the
+   task step; they are fetched back here as bytes so the repository gets real files
+   rather than links to an origin a CI runner cannot reach. */
+async function publish(){
+  if (!S.conn){ S.error='No write endpoint configured yet.'; return render(); }
+  S.publishing = true; S.error = null; render();
+  try {
+    const p = buildPayload();
+    const files = [];
+    for (const f of p.files){
+      if (f.contents !== undefined){
+        files.push({ path:f.path, contentsBase64: b64(JSON.stringify(f.contents, null, 2)) });
+      } else {
+        const photo = S.photos.find(x => x.id === f.asset);
+        if (!photo) throw new Error('a photo went missing before publishing');
+        const res = await fetch(photo.url);
+        if (!res.ok) throw new Error('could not read an uploaded photo');
+        files.push({ path:f.path, contentsBase64: await blobToB64(await res.blob()) });
+      }
+    }
+    const res = await fetch(S.conn.endpoint, {
+      method:'POST',
+      headers:{ 'content-type':'application/json', authorization:`Bearer ${S.conn.key}` },
+      body: JSON.stringify({ message:p.message, files }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
+    S.published = { commit: out.commit, at: new Date().toISOString() };
+  } catch (e) {
+    S.error = 'Publish failed: ' + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
+}
+
+function b64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function blobToB64(blob){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = () => rej(new Error('could not encode photo'));
+    r.readAsDataURL(blob);
+  });
+}
+
 async function downloadPayload(){
   const payload = buildPayload();
   if (!S.caps.downloads){ S.error='Saving a file is unavailable in this view.'; return render(); }
@@ -393,6 +475,12 @@ function vWorkspace(){
           <p>Slots: ${esc(c.specs.join(' · '))}</p>
           <div class="go">Open &rarr;</div>
         </button>`).join('')}
+      <button class="tile" onclick="go('conn')">
+        <div class="mk">&#9881;</div>
+        <h2>Connection</h2>
+        <p>${S.conn ? 'Write endpoint configured' : 'Not configured &mdash; publishing is off'}</p>
+        <div class="go">Open &rarr;</div>
+      </button>
     </div>
     ${drafts}`;
 }
@@ -502,21 +590,37 @@ function vPlan(){
 
 function vResult(){
   const p = buildPayload();
+  if (S.published){
+    return `
+      <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Published</div>
+      <div class="card" style="max-width:580px;margin-top:20px">
+        <div class="card-b" style="text-align:center;padding:32px">
+          <div style="font-size:42px;color:var(--acc);line-height:1">&#10003;</div>
+          <h1 style="font-size:24px;margin:12px 0 8px">It's live</h1>
+          <p class="dim" style="margin:0 0 6px">Commit
+            <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>.
+            The site rebuilds in about a minute.</p>
+          <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
+            <a class="btn" target="_blank"
+               href="https://cloudstrucc.github.io/automotive-studio/">View the site</a>
+            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];go('workspace')">
+              Make another change
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Ready to publish</div>
     <h1>Ready to publish</h1>
-    <p class="lede">Your draft is saved. This is exactly what will be written to the repository.</p>
+    <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
 
-    <div class="note" style="margin-top:20px">
-      <b>The repository write is not wired yet.</b>
-      An Artifact can only reach GitHub through an MCP connector that exposes callable
-      tools, and this account has none &mdash; the GitHub Integration and the Claude
-      GitHub App power other features and expose no such tools. Until a small write
-      endpoint exists, save the payload below and commit it, or run the same change
-      through Claude Code.
-    </div>
+    ${S.conn ? '' : `<div class="note" style="margin-top:20px">
+      <b>No write endpoint configured.</b> Add one on the Connection screen and this
+      becomes a single click. Until then, save the payload and commit it by hand.
+    </div>`}
 
-    <div class="card">
+    <div class="card" style="margin-top:${S.conn?'20px':'0'}">
       <div class="card-h">Files to write</div>
       <div class="card-b">
         ${p.files.map(f => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
@@ -535,10 +639,45 @@ function vResult(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      ${S.caps.downloads ? '<button class="btn" onclick="downloadPayload()">Save the payload</button>' : ''}
+      ${S.conn ? `<button class="btn" onclick="publish()" ${S.publishing?'disabled':''}>
+          ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the site'}
+        </button>` : `<button class="btn" onclick="go('conn')">Set up the endpoint</button>`}
+      ${S.caps.downloads ? '<button class="btn ghost" onclick="downloadPayload()">Save the payload</button>' : ''}
       <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];go('workspace')">
-        Make another change
+        Discard
       </button>
+    </div>`;
+}
+
+function vConn(){
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Connection</div>
+    <h1>Write endpoint</h1>
+    <p class="lede">Where this workspace sends changes. Deploy the worker in
+      <span style="font-family:ui-monospace,Menlo,monospace">admin/write-endpoint/</span>,
+      then paste its URL and key here.</p>
+
+    <div class="card" style="margin-top:20px">
+      <div class="card-b">
+        <label class="lab">Endpoint URL</label>
+        <input class="in" id="ep" placeholder="https://autoline-write.<you>.workers.dev"
+               value="${esc(S.conn?.endpoint || '')}" style="margin-bottom:15px">
+        <label class="lab">Write key</label>
+        <input class="in" id="wk" type="password" placeholder="the WRITE_KEY secret"
+               value="${esc(S.conn?.key || '')}">
+        <p class="dim" style="font-size:12.5px;margin:10px 0 0">
+          Stored in this artifact's database, never in the public repository. Everyone
+          the artifact is shared with can read it &mdash; the same people already
+          trusted to publish. Rotate it when that changes.
+        </p>
+      </div>
+    </div>
+
+    ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div style="display:flex;gap:9px">
+      <button class="btn" onclick="saveConn($('#ep').value, $('#wk').value)">Save</button>
+      <button class="btn ghost" onclick="go('workspace')">Back</button>
     </div>`;
 }
 
@@ -547,6 +686,7 @@ function render(){
   const v = S.view==='workspace' ? vWorkspace()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()
+          : S.view==='conn'      ? vConn()
           : vResult();
   $('#view').innerHTML = v;
 }
