@@ -303,7 +303,10 @@ function buildPayload(){
     title: f.title, subtitle: f.subtitle, year: f.year, price: f.price,
     eyebrow: f.eyebrow,
     specs: f.specs.filter(s => s.value),
-    images: S.photos.map((p,i) => ({ file: `${slug}_${i+1}.jpg`, role: i ? 'secondary' : 'primary' })),
+    images: S.photos.map((p,i) => ({
+      file: `source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`,
+      role: i ? 'secondary' : 'primary',
+    })),
     audit: { updated_at: new Date().toISOString() },
   };
   return {
@@ -530,6 +533,11 @@ function vResult(){
     <h1>Ready to publish</h1>
     <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
 
+    ${S.photos.length ? '' : `<div class="note" style="margin-top:20px">
+      <b>This item has no photo.</b> A published item needs at least one &mdash; the ad
+      is built from it, so without a photo there is nothing to show. Go back and add one.
+    </div>`}
+
     <div class="card" style="margin-top:20px">
       <div class="card-h">Files to write</div>
       <div class="card-b">
@@ -549,8 +557,8 @@ function vResult(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn" onclick="publish()" ${S.publishing?'disabled':''}>
-        ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the site'}
+      <button class="btn" onclick="publish()" ${S.publishing||!S.photos.length?'disabled':''}>
+        ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the preview site'}
       </button>
       <button class="btn ghost" onclick="downloadPayload()">Save the payload</button>
       <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];go('workspace')">

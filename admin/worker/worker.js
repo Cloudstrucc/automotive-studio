@@ -186,12 +186,82 @@ async function handleWrite(request, env) {
     if (total > MAX_BYTES) return json({ error: 'payload too large' }, 413);
   }
 
+  // A published item must have at least one image: the ad artwork is built from the
+  // photo, so an item without one renders as an empty frame on the live site. Enforced
+  // here rather than only in the page, because the page is not the only possible caller.
+  try {
+    const problem = await checkPublishedItems(env, files);
+    if (problem) return json({ error: problem }, 422);
+  } catch (e) {
+    return json({ error: `could not validate the item: ${e.message || e}` }, 502);
+  }
+
   try {
     const sha = await commitFiles(env, files, message);
     return json({ ok: true, commit: sha });
   } catch (e) {
     return json({ error: String(e.message || e) }, 502);
   }
+}
+
+const ITEM_MANIFEST = /(?:^|\/)manifests\/items\/[^/]+\/[^/]+\.json$/;
+
+/**
+ * Returns a message when the payload would publish an item without a usable image,
+ * or null when everything checks out. An image counts if it arrives in this payload
+ * or already exists in the repository.
+ */
+async function checkPublishedItems(env, files) {
+  const incoming = new Set(files.map(f => f.path));
+
+  for (const f of files) {
+    if (!ITEM_MANIFEST.test(f.path)) continue;
+
+    let item;
+    try { item = JSON.parse(b64decode(f.contentsBase64)); }
+    catch { return `${f.path} is not valid JSON`; }
+
+    if (item?.status !== 'published') continue;
+
+    const images = Array.isArray(item.images) ? item.images : [];
+    if (!images.length) {
+      return `${item.slug || f.path} has no image. A published item needs at least one.`;
+    }
+
+    // images[].file is relative to the environment root, which is everything in the
+    // manifest's path before "/manifests/".
+    const root = f.path.slice(0, f.path.indexOf('manifests/'));
+    for (const img of images) {
+      if (!img?.file) return `${item.slug || f.path} has an image entry with no file`;
+      const full = root + img.file;
+      if (incoming.has(full)) continue;
+      if (!(await existsInRepo(env, full))) {
+        return `${item.slug || f.path} refers to a missing image: ${img.file}`;
+      }
+    }
+  }
+  return null;
+}
+
+async function existsInRepo(env, path) {
+  const branch = env.BRANCH || 'main';
+  const url = `https://api.github.com/repos/${env.REPO}/contents/${encodeURI(path)}?ref=${encodeURIComponent(branch)}`;
+  const res = await fetch(url, {
+    headers: {
+      authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      accept: 'application/vnd.github+json',
+      'user-agent': UA,
+    },
+  });
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`GitHub ${res.status} checking ${path}`);
+  return true;
+}
+
+function b64decode(b64) {
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 /**
