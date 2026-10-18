@@ -56,8 +56,14 @@ npx wrangler secret put WRITE_KEY
 
 ## Put Cloudflare Access in front of it — do this before sharing the URL
 
-**There is no login on `GET /`.** Without Access, anyone with the URL can use the
-admin and publish to your site.
+**There is no login on `GET /`** — the page itself is public. Writes, however, fail
+closed: `POST /api/plan` and `POST /write` return 401 unless the request carries a
+Cloudflare Access assertion or a valid `WRITE_KEY`. So an unconfigured Worker leaks
+the UI, not the ability to publish.
+
+Being same-origin is deliberately **not** accepted as authentication. Every visitor to
+a public page is same-origin; treating that as proof of identity would leave an open
+write endpoint for anyone who found the URL.
 
 1. Cloudflare dashboard → **Zero Trust** → **Access** → **Applications** → *Add an
    application* → **Self-hosted**

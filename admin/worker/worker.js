@@ -40,15 +40,18 @@ export default {
       return json({ error: 'not found' }, 404);
     }
 
-    // Same-origin calls from our own page carry no bearer token: Cloudflare Access
-    // is the gate. WRITE_KEY stays supported so scripts and tests can call in.
-    if (env.WRITE_KEY) {
-      const auth = request.headers.get('authorization') || '';
-      const sameOrigin = (request.headers.get('origin') || '') === url.origin;
-      const viaAccess = !!request.headers.get('cf-access-jwt-assertion');
-      if (!sameOrigin && !viaAccess && !timingSafeEqual(auth, `Bearer ${env.WRITE_KEY}`)) {
-        return json({ error: 'unauthorized' }, 401);
-      }
+    // Cloudflare Access is the gate: it authenticates before a request reaches us
+    // and stamps every one with Cf-Access-Jwt-Assertion. WRITE_KEY is the escape
+    // hatch for scripts.
+    //
+    // Deliberately NOT accepted: "the request is same-origin". Every visitor to a
+    // public page is same-origin, so that would leave an open write endpoint for
+    // anyone who found the URL. Without Access configured, POSTs fail closed.
+    const auth = request.headers.get('authorization') || '';
+    const viaAccess = !!request.headers.get('cf-access-jwt-assertion');
+    const viaKey = env.WRITE_KEY && timingSafeEqual(auth, `Bearer ${env.WRITE_KEY}`);
+    if (!viaAccess && !viaKey) {
+      return json({ error: 'unauthorized', hint: 'Cloudflare Access is not configured for this Worker' }, 401);
     }
 
     if (url.pathname === '/api/plan') return handlePlan(request, env);
