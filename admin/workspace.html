@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoline Workspace</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#0a0e14; --panel:#11161f; --panel2:#0d1219; --ink:#eef2f6; --soft:#9fb0c2;
+  --dim:#6f8295; --line:#1e2731; --acc:#19e36a; --acc-ink:#04140a; --warn:#f5a623;
+  --cond:"Archivo","Arial Narrow",sans-serif;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;
+  background:radial-gradient(120% 70% at 85% -10%,#16202e 0%,rgba(10,14,20,0) 55%),var(--bg);
+  color:var(--ink);font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+  font-size:14.5px;line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+a{color:inherit}
+h1,h2{font-family:var(--cond);font-weight:800;margin:0}
+
+.bar{position:sticky;top:0;z-index:30;background:rgba(10,14,20,.88);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1000px;margin:0 auto;padding:13px 20px;display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--cond);font-weight:800;
+  text-transform:uppercase;font-size:16px;cursor:pointer}
+.brand i{width:13px;height:13px;background:var(--acc);clip-path:polygon(0 0,100% 0,65% 100%,0 100%)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--soft);
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 11px;white-space:nowrap}
+.chip.ok{color:var(--acc);border-color:rgba(25,227,106,.34)}
+.chip.warn{color:var(--warn);border-color:rgba(245,166,35,.34)}
+
+.wrap{max-width:1000px;margin:0 auto;padding:24px 20px 70px}
+.crumbs{font-size:12.5px;color:var(--dim);margin-bottom:10px}
+.crumbs b{color:var(--soft);cursor:pointer;font-weight:500}
+.crumbs b:hover{color:var(--acc)}
+
+.eyebrow{font-family:var(--cond);font-weight:700;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--acc);font-size:11.5px;margin:0 0 11px}
+h1{font-size:clamp(26px,4.4vw,38px)}
+.lede{color:var(--soft);max-width:60ch;margin:12px 0 0}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin:26px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:19px;
+  cursor:pointer;transition:border-color .13s,transform .13s;text-align:left;color:inherit;font:inherit;width:100%}
+.tile:hover{border-color:var(--acc);transform:translateY(-2px)}
+.tile .mk{width:38px;height:38px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;margin-bottom:13px;
+  font-family:var(--cond);font-weight:800;color:var(--acc);font-size:15px}
+.tile h2{font-size:17px;text-transform:uppercase}
+.tile p{color:var(--soft);font-size:13px;margin:4px 0 0}
+.tile .go{color:var(--acc);font-size:11.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;margin-top:13px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:14px}
+.card-h{padding:12px 17px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px}
+.card-b{padding:17px}
+
+label.lab{font-family:var(--cond);font-size:10.5px;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--soft);font-weight:700;display:block;margin-bottom:6px}
+input.in,textarea.in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  color:var(--ink);padding:10px 13px;font-size:14px;font-family:inherit}
+input.in:focus,textarea.in:focus{outline:none;border-color:var(--acc)}
+textarea.in{resize:vertical;min-height:100px}
+input.in::placeholder,textarea.in::placeholder{color:#55657a}
+input.in.missing{border-color:var(--warn)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:9px;background:var(--acc);
+  color:var(--acc-ink);font-weight:700;font-size:14px;padding:11px 19px;cursor:pointer;font-family:inherit}
+.btn:hover:not(:disabled){background:#15c55c}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--soft);font-weight:600}
+.btn.ghost:hover:not(:disabled){color:var(--acc);border-color:var(--acc);background:transparent}
+
+.acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px}
+.act{display:flex;align-items:center;gap:9px;padding:13px 15px;border-radius:10px;background:var(--panel2);
+  border:1px solid var(--line);cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);
+  font-family:inherit;text-align:left}
+.act:hover:not(:disabled){border-color:var(--acc)}
+.act.sel{border-color:var(--acc);background:rgba(25,227,106,.09)}
+.act:disabled{opacity:.42;cursor:not-allowed}
+.act small{display:block;color:var(--dim);font-weight:500;font-size:11.5px}
+
+.drop{border:1px dashed #2a3747;border-radius:11px;padding:22px;text-align:center;color:var(--soft);
+  background:var(--panel2);cursor:pointer}
+.drop:hover{border-color:var(--acc)}
+.thumbs{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.thumb{position:relative;width:84px;height:64px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb button{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.72);color:#fff;border:0;
+  border-radius:4px;width:19px;height:19px;cursor:pointer;font-size:12px;line-height:1}
+
+.sum{background:rgba(25,227,106,.08);border:1px solid rgba(25,227,106,.3);border-radius:11px;
+  padding:15px 17px;margin-bottom:16px}
+.fld{display:flex;gap:10px;align-items:center;margin-bottom:9px;flex-wrap:wrap}
+.fld .lab{margin:0;flex:0 0 96px}
+.fld .in{flex:1;min-width:150px}
+.tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--warn);
+  background:rgba(245,166,35,.13);padding:3px 7px;border-radius:4px;white-space:nowrap}
+
+pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:14px;
+  overflow-x:auto;font-size:12px;line-height:1.5;color:var(--soft);margin:0}
+.note{background:rgba(245,166,35,.09);border:1px solid rgba(245,166,35,.32);border-radius:10px;
+  padding:13px 16px;font-size:13.5px;color:#f0c478;margin-bottom:16px}
+.note b{color:var(--warn)}
+.dim{color:var(--dim)}
+.row{display:flex;align-items:center;gap:11px;padding:12px 17px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--acc);
+  border-radius:50%;display:inline-block;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hide{display:none}
+@media(max-width:620px){
+  .bar-in .chip.who{display:none}
+  .wrap{padding:18px 15px 60px}
+  .fld .lab{flex:0 0 100%}
+}
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="bar-in">
+  <div class="brand" onclick="go('workspace')"><i></i>Autoline</div>
+  <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+    <span class="chip" id="capChip"><span class="spin"></span> starting</span>
+    <span class="chip who" id="whoChip"></span>
+  </div>
+</div></div>
+
+<div class="wrap" id="view"></div>
+
+<script>
+'use strict';
+
+/* ---------- configuration ----------
+   Spec slots per catalogue. These mirror manifests/catalogues/<slug>.json in the repo;
+   a catalogue supplies default labels and an item may override any of them. */
+const CATALOGUES = [
+  { slug:'vehicles', label:'Vehicles', mark:'VE', specs:['KM','Engine','Drivetrain'] },
+  { slug:'tyres',    label:'Tyres',    mark:'TY', specs:['Size','Season','Condition'] },
+  { slug:'services', label:'Services', mark:'SV', specs:['Duration','Includes','Warranty'] },
+];
+
+const ACTIONS = [
+  { id:'add',     label:'Add an item',      hint:'Describe it, I fill the fields', ready:true  },
+  { id:'price',   label:'Change a price',   hint:'Next pass',                      ready:false },
+  { id:'photos',  label:'Update photos',    hint:'Next pass',                      ready:false },
+  { id:'sold',    label:'Mark as sold',     hint:'Next pass',                      ready:false },
+];
+
+/* The shape the model must return. Also what we validate against before rendering. */
+const PLAN_SHAPE = `{
+  "summary": "one sentence describing the change",
+  "fields": {
+    "title":    "string or null",
+    "subtitle": "string or null",
+    "year":     "string or null",
+    "price":    "string or null, digits and commas only, no $",
+    "eyebrow":  "string or null, a short badge like Certified",
+    "specs": [ { "label": "string", "value": "string or null" } ]
+  }
+}`;
+
+/* ---------- state ---------- */
+const S = {
+  view:'workspace', cat:null, action:'add',
+  text:'', photos:[],           // {id,url,name}
+  plan:null, busy:false, error:null,
+  caps:{ sample:null, assets:null, db:null, user:null, downloads:null },
+  ready:false, me:null, canEdit:false, drafts:[],
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Views take a catalogue object; callers pass its slug. */
+function go(v, slug){
+  if (slug !== undefined) S.cat = CATALOGUES.find(c => c.slug === slug) || null;
+  S.view = v; S.error = null; render();
+}
+
+/* ---------- capability bootstrap ----------
+   Capabilities resolve after the first script run and may never resolve. The page is
+   built to work without them, then lights features up as they arrive. */
+async function boot(){
+  if (!window.claude || typeof claude.use !== 'function'){ S.ready=true; return paint(); }
+  const names = ['sample','assets','db','user','downloads'];
+  await Promise.all(names.map(async n => {
+    try { S.caps[n] = await claude.use(n); } catch { S.caps[n] = null; }
+  }));
+  if (S.caps.user){
+    try {
+      S.me = await S.caps.user.me();
+      S.canEdit = S.caps.user.canEdit?.() ?? false;
+    } catch {}
+  }
+  S.ready = true;
+  paint();
+  loadDrafts();
+}
+
+function paint(){
+  const c = S.caps, chip = $('#capChip'), who = $('#whoChip');
+  const missing = [];
+  if (!c.sample) missing.push('assistant');
+  if (!c.assets) missing.push('uploads');
+  if (!c.db)     missing.push('saving');
+  if (!missing.length){ chip.className='chip ok'; chip.textContent='Ready'; }
+  else { chip.className='chip warn'; chip.textContent='Limited: no ' + missing.join(', '); }
+  who.textContent = S.me?.name || S.me?.email || 'signed in';
+  who.classList.toggle('hide', !S.me);
+  render();
+}
+
+async function loadDrafts(){
+  if (!S.caps.db) return;
+  try {
+    const snap = await S.caps.db.collection('drafts').limit(20).get();
+    S.drafts = (snap?.docs || []).map(d => ({ id:d.id, ...(d.data?.() ?? d.data) }));
+    render();
+  } catch {}
+}
+
+/* ---------- image handling ----------
+   Resized before upload: the ad generator composites into at most 1920px, so a phone's
+   12MP original is wasted bytes either way, and a smaller file keeps the eventual
+   repository write comfortably inside any payload ceiling. */
+const MAX_EDGE = 1600;
+function resize(file){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width:w, height:h } = img;
+      const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+      w = Math.round(w*scale); h = Math.round(h*scale);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      cv.toBlob(b => b ? res(b) : rej(new Error('could not encode image')), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('could not read that image')); };
+    img.src = url;
+  });
+}
+
+async function addPhotos(files){
+  if (!S.caps.assets){ S.error='Uploads are unavailable in this view.'; return render(); }
+  S.busy = true; S.error = null; render();
+  for (const f of files){
+    try {
+      const blob = await resize(f);
+      const a = await S.caps.assets.upload(blob);
+      S.photos.push({ id:a.id, url:a.url, name:f.name });
+    } catch (e) {
+      S.error = 'Could not add ' + f.name + ': ' + (e?.message || 'upload failed');
+    }
+  }
+  S.busy = false; render();
+}
+
+/* ---------- the assistant ----------
+   The model never writes anything. It returns a plan object which the page validates,
+   renders as an editable form, and only acts on once the user confirms. */
+function validatePlan(p, cat){
+  if (!p || typeof p !== 'object') throw new Error('no plan returned');
+  if (typeof p.summary !== 'string' || !p.summary.trim()) throw new Error('plan had no summary');
+  const f = p.fields;
+  if (!f || typeof f !== 'object') throw new Error('plan had no fields');
+  const str = v => (v == null || v === '') ? null : String(v);
+  const specs = Array.isArray(f.specs) ? f.specs : [];
+  return {
+    summary: p.summary.trim(),
+    fields: {
+      title: str(f.title), subtitle: str(f.subtitle), year: str(f.year),
+      price: str(f.price) ? String(f.price).replace(/[^0-9,]/g,'') : null,
+      eyebrow: str(f.eyebrow),
+      // slots are fixed by the catalogue; the model may fill values, never add columns
+      specs: cat.specs.map((label, i) => ({
+        label: str(specs[i]?.label) || label,
+        value: str(specs[i]?.value),
+      })),
+    },
+  };
+}
+
+async function askForPlan(){
+  const cat = S.cat;
+  if (!S.caps.sample){ S.error='The assistant is unavailable in this view.'; return render(); }
+  if (!S.text.trim()){ S.error='Describe the item first.'; return render(); }
+  S.busy = true; S.error = null; render();
+  try {
+    const prompt =
+      `You turn a short description into one catalogue item for a vehicle sales site.\n` +
+      `Catalogue: ${cat.label}. Its three spec slots are: ${cat.specs.join(', ')}.\n\n` +
+      `Return ONLY JSON of this shape:\n${PLAN_SHAPE}\n\n` +
+      `Rules:\n` +
+      `- Use null for anything the description does not state. Never invent a value.\n` +
+      `- Keep the three spec slots in the order given, with those labels.\n` +
+      `- "title" is make and model without the year. "year" is four digits.\n` +
+      `- "price" is digits and commas only.\n\n` +
+      `Description:\n${S.text.trim()}`;
+    const raw = await S.caps.sample.json(prompt, { modelTier:'default' });
+    S.plan = validatePlan(raw, cat);
+    S.view = 'plan';
+  } catch (e) {
+    const code = e?.code;
+    S.error = code === 'rate_limited' ? 'The assistant is rate limited. Try again shortly.'
+            : code === 'not_granted'  ? 'The assistant was not permitted for this page.'
+            : 'Could not read a plan from that description: ' + (e?.message || 'unknown error');
+  }
+  S.busy = false; render();
+}
+
+/* ---------- what a publish would send ----------
+   The repository write is deliberately not wired: an Artifact can only reach GitHub
+   through an MCP connector exposing callable tools, and this account has none. The
+   payload below is exactly what the write step will send once that path exists. */
+function buildPayload(){
+  const f = S.plan.fields;
+  const slug = (f.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const manifest = {
+    schema: 1, slug, catalogue: S.cat.slug, status: 'published', order: 99,
+    title: f.title, subtitle: f.subtitle, year: f.year, price: f.price,
+    eyebrow: f.eyebrow,
+    specs: f.specs.filter(s => s.value),
+    images: S.photos.map((p,i) => ({ file: `${slug}_${i+1}.jpg`, role: i ? 'secondary' : 'primary' })),
+    audit: { updated_by: S.me?.email || 'unknown', updated_at: new Date().toISOString() },
+  };
+  return {
+    files: [
+      { path:`manifests/items/${S.cat.slug}/${slug}.json`, contents: manifest },
+      ...S.photos.map((p,i) => ({ path:`source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, asset:p.id })),
+    ],
+    message: `Add ${f.year || ''} ${f.title || slug}`.trim(),
+  };
+}
+
+async function saveDraft(){
+  const payload = buildPayload();
+  if (S.caps.db){
+    try {
+      await S.caps.db.collection('drafts').doc(payload.files[0].contents.slug).set({
+        catalogue: S.cat.slug,
+        title: S.plan.fields.title,
+        summary: S.plan.summary,
+        payload,
+        savedAt: new Date().toISOString(),
+      });
+      await loadDrafts();
+    } catch (e) { S.error = 'Could not save the draft: ' + (e?.message || 'write refused'); }
+  }
+  S.view = 'result'; render();
+}
+
+async function downloadPayload(){
+  const payload = buildPayload();
+  if (!S.caps.downloads){ S.error='Saving a file is unavailable in this view.'; return render(); }
+  try {
+    await S.caps.downloads.save({
+      filename: payload.files[0].contents.slug + '.json',
+      data: JSON.stringify(payload, null, 2),
+    });
+  } catch (e) { if (e?.code !== 'cancelled') S.error = 'The download was not saved.'; }
+}
+
+/* ---------- views ---------- */
+function vWorkspace(){
+  const drafts = S.drafts.length ? `
+    <div class="card">
+      <div class="card-h">Saved drafts</div>
+      ${S.drafts.map(d => `<div class="row">
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(d.title || d.id)}</div>
+          <div class="dim" style="font-size:12.5px">${esc(d.summary || '')}</div>
+        </div>
+        <span class="chip">${esc(d.catalogue || '')}</span>
+      </div>`).join('')}
+    </div>` : '';
+  return `
+    <p class="eyebrow">Autoline · Workspace</p>
+    <h1>What would you like to change?</h1>
+    <p class="lede">Pick an area, describe the change in plain English, and I'll show you
+      exactly what I plan to do before anything is written.</p>
+    <div class="grid">
+      ${CATALOGUES.map(c => `
+        <button class="tile" onclick="go('task','${c.slug}')">
+          <div class="mk">${c.mark}</div>
+          <h2>${esc(c.label)}</h2>
+          <p>Slots: ${esc(c.specs.join(' · '))}</p>
+          <div class="go">Open &rarr;</div>
+        </button>`).join('')}
+    </div>
+    ${drafts}`;
+}
+
+function vTask(){
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / ${esc(S.cat.label)}</div>
+    <h1>${esc(S.cat.label)}</h1>
+    <p class="lede">What would you like to do?</p>
+
+    <div class="acts" style="margin:22px 0">
+      ${ACTIONS.map(a => `
+        <button class="act ${a.id===S.action?'sel':''}" ${a.ready?'':'disabled'}
+                onclick="S.action='${a.id}';render()">
+          <div>${esc(a.label)}<small>${esc(a.hint)}</small></div>
+        </button>`).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-h">Describe it</div>
+      <div class="card-b">
+        <label class="lab">In your own words</label>
+        <textarea class="in" id="desc" placeholder="e.g. 2017 Santa Fe Sport, 2.4L, 107,000 km, heated seats, asking 14,000"
+          oninput="S.text=this.value">${esc(S.text)}</textarea>
+        <p class="dim" style="font-size:12.5px;margin:8px 0 0">
+          Anything you don't mention is left blank for you to fill &mdash; never guessed.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">Photos ${S.caps.assets ? '' : '<span class="chip warn" style="margin-left:auto">unavailable</span>'}</div>
+      <div class="card-b">
+        <div class="drop" onclick="$('#file').click()">
+          <div style="font-weight:600">Choose photos from this device</div>
+          <div class="dim" style="font-size:12.5px">JPG or PNG &middot; resized here before upload</div>
+        </div>
+        <input id="file" type="file" accept="image/*" multiple class="hide"
+               onchange="addPhotos([...this.files]);this.value=''">
+        <div class="thumbs">
+          ${S.photos.map((p,i) => `<div class="thumb">
+            <img src="${esc(p.url)}" alt="">
+            <button onclick="S.photos.splice(${i},1);render()" title="Remove">&times;</button>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div style="display:flex;gap:9px;margin-top:6px">
+      <button class="btn" onclick="askForPlan()" ${S.busy||!S.caps.sample?'disabled':''}>
+        ${S.busy ? '<span class="spin"></span> Thinking' : 'Show me the plan'}
+      </button>
+      <button class="btn ghost" onclick="go('workspace')">Cancel</button>
+    </div>`;
+}
+
+function vPlan(){
+  const f = S.plan.fields;
+  const row = (key, label, val) => `
+    <div class="fld">
+      <label class="lab">${esc(label)}</label>
+      <input class="in ${val==null?'missing':''}" value="${esc(val)}"
+             placeholder="not stated" oninput="S.plan.fields.${key}=this.value||null">
+      ${val==null?'<span class="tag">needs you</span>':''}
+    </div>`;
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> /
+      <b onclick="go('task')">${esc(S.cat.label)}</b> / Review</div>
+    <h1>Here's what I'll do</h1>
+    <p class="lede">Nothing has been written. Edit anything below, then confirm.</p>
+
+    <div class="sum" style="margin-top:20px">${esc(S.plan.summary)}</div>
+
+    <div class="card">
+      <div class="card-h">Fields</div>
+      <div class="card-b">
+        ${row('title','Title',f.title)}
+        ${row('subtitle','Subtitle',f.subtitle)}
+        ${row('year','Year',f.year)}
+        ${row('price','Price',f.price)}
+        ${row('eyebrow','Badge',f.eyebrow)}
+        <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+        <label class="lab">Spec slots</label>
+        ${f.specs.map((s,i) => `
+          <div class="fld">
+            <label class="lab">${esc(s.label)}</label>
+            <input class="in ${s.value==null?'missing':''}" value="${esc(s.value)}"
+                   placeholder="not stated" oninput="S.plan.fields.specs[${i}].value=this.value||null">
+            ${s.value==null?'<span class="tag">needs you</span>':''}
+          </div>`).join('')}
+        <p class="dim" style="font-size:12.5px;margin:12px 0 0">
+          Blank fields are ones your description didn't cover. Three slots is the ceiling &mdash;
+          that is what the ad artwork draws.
+        </p>
+      </div>
+    </div>
+
+    ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div style="display:flex;gap:9px">
+      <button class="btn" onclick="saveDraft()">Looks right &mdash; continue</button>
+      <button class="btn ghost" onclick="go('task')">Back</button>
+    </div>`;
+}
+
+function vResult(){
+  const p = buildPayload();
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Ready to publish</div>
+    <h1>Ready to publish</h1>
+    <p class="lede">Your draft is saved. This is exactly what will be written to the repository.</p>
+
+    <div class="note" style="margin-top:20px">
+      <b>The repository write is not wired yet.</b>
+      An Artifact can only reach GitHub through an MCP connector that exposes callable
+      tools, and this account has none &mdash; the GitHub Integration and the Claude
+      GitHub App power other features and expose no such tools. Until a small write
+      endpoint exists, save the payload below and commit it, or run the same change
+      through Claude Code.
+    </div>
+
+    <div class="card">
+      <div class="card-h">Files to write</div>
+      <div class="card-b">
+        ${p.files.map(f => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+          padding:5px 0;border-bottom:1px solid var(--line)">
+          <span style="color:var(--acc)">+</span> ${esc(f.path)}
+          ${f.asset?'<span class="dim"> (photo)</span>':''}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">Payload</div>
+      <div class="card-b"><pre class="payload">${esc(JSON.stringify(p, null, 2))}</pre></div>
+    </div>
+
+    ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      ${S.caps.downloads ? '<button class="btn" onclick="downloadPayload()">Save the payload</button>' : ''}
+      <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];go('workspace')">
+        Make another change
+      </button>
+    </div>`;
+}
+
+function render(){
+  if (!S.ready){ $('#view').innerHTML = '<p class="dim" style="padding:40px 0">Starting…</p>'; return; }
+  const v = S.view==='workspace' ? vWorkspace()
+          : S.view==='task'      ? vTask()
+          : S.view==='plan'      ? vPlan()
+          : vResult();
+  $('#view').innerHTML = v;
+}
+
+render();
+boot();
+</script>
+</body>
+</html>

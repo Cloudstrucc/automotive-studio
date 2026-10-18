@@ -177,27 +177,33 @@ schema from this description".
 
 ## 6. Open questions — things I will not guess at
 
-### 6.1 The connector's display name and tool names **(blocking, 30 seconds to clear)**
+### 6.1 The write path — resolved: there is no GitHub connector
 
-The `mcp` declaration is a publish-time **allowlist**, not runtime discovery:
+**Checked, twice, after each change on the account:**
 
-```js
-capabilities: { mcp: { servers: [{ server: "<display name>", tools: ["<tool>", "..."] }] }}
+| Thing | State | Gives an Artifact a callable tool? |
+|---|---|---|
+| GitHub Integration ("GitHub account connected") | connected | **No** — powers Projects sync, cloud-session repo selection, code review |
+| Claude GitHub App | installed on `Cloudstrucc` | **No** — labelled "Cloud sessions only" in the panel itself |
+| claude.ai MCP connectors | Claude Docs, Lucid, Microsoft 365, visualize | **No GitHub among them** |
+
+The `mcp` capability resolves connectors **by display name** against the viewer's
+connector list, and that list has no GitHub entry. So there is no name to declare and
+nothing to infer; this is settled rather than pending.
+
+**The write path is therefore a small endpoint of our own:**
+
+```
+POST /write   { files: [{path, contentsBase64}], message }   ->  GitHub contents API
 ```
 
-Viewers resolve connectors **by name only**, and an omitted or empty `tools` array is
-refused — it never means "all tools". A wrong name fails closed with
-`server_not_connected`, and the page cannot correct itself because the manifest is fixed
-at publish time.
+A Cloudflare Worker or Azure Function holding a fine-grained, single-repo token. The
+page never sees the credential; it posts a payload and gets a commit sha back. Roughly
+30 lines, free tier, nothing to maintain. Everything else about Option B is unchanged.
 
-Two different things, and only one is needed from you:
-
-| | Needed at publish? | Where it comes from |
-|---|---|---|
-| Connector display name, tool names | **Yes** — they go in the manifest | You, from claude.ai -> Settings -> Connectors |
-| Tool argument shapes | No | The page reads them at view time with `describeTool()` |
-
-So the ask is one lookup, not a schema dump.
+The alternative — a fine-grained PAT held in the page's `db` — needs no hosting at all
+but puts a live credential somewhere the page can read, and would require the client to
+generate one. Not recommended for a client-facing tool.
 
 ### 6.2 Photos are trapped in a 2 MB JSON blob **(a Phase 0 task, not a risk)**
 
@@ -238,9 +244,9 @@ GitHub connector handles best.
 
 ## 7. Risks
 
-1. **The connector is the single point of failure.** If it is unavailable at view time,
-   `claude.use("mcp")` resolves `null` and the page cannot publish. It must render
-   read-only and say so rather than appearing broken.
+1. **The write endpoint is the single point of failure.** Until it exists the page
+   cannot publish, and it must say so plainly rather than appearing broken. The built
+   page does this: it shows the exact payload and explains why it was not sent.
 2. **Consent prompts on first use.** `sample` and `mcp` ask the viewer the first time.
    Trigger them from a click, never on load, or the client meets a dialog before they
    understand the page.
