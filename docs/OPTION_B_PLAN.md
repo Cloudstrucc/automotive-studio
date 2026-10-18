@@ -177,41 +177,55 @@ schema from this description".
 
 ## 6. Open questions — things I will not guess at
 
-### 6.1 The connector's display name and tools **(blocking)**
+### 6.1 The connector's display name and tool names **(blocking, 30 seconds to clear)**
 
-The `mcp` declaration names a connector by its **display name**, and lists the exact
-upstream tool names the page calls:
+The `mcp` declaration is a publish-time **allowlist**, not runtime discovery:
 
 ```js
-capabilities: {
-  mcp: { servers: [{ server: "<exact display name>", tools: ["<exact>", "…"] }] }
-}
+capabilities: { mcp: { servers: [{ server: "<display name>", tools: ["<tool>", "..."] }] }}
 ```
 
-You say GitHub is connected; my tooling in this session does not see it, which may just
-mean this session's view differs from claude.ai's. Either way I need from you:
+Viewers resolve connectors **by name only**, and an omitted or empty `tools` array is
+refused — it never means "all tools". A wrong name fails closed with
+`server_not_connected`, and the page cannot correct itself because the manifest is fixed
+at publish time.
 
-- the connector's display name, exactly as claude.ai shows it
-- the tool names it exposes for reading and writing repository files
+Two different things, and only one is needed from you:
 
-Guessing these ships a page that fails at the last step, so this is the one input I need
-before writing code.
+| | Needed at publish? | Where it comes from |
+|---|---|---|
+| Connector display name, tool names | **Yes** — they go in the manifest | You, from claude.ai -> Settings -> Connectors |
+| Tool argument shapes | No | The page reads them at view time with `describeTool()` |
 
-### 6.2 Getting image bytes into the repo **(the main technical risk)**
+So the ask is one lookup, not a schema dump.
 
-Photos land in the browser; they must end up in `<env>/ads/jpg/`. Three routes:
+### 6.2 Photos are trapped in a 2 MB JSON blob **(a Phase 0 task, not a risk)**
 
-1. **Base64 through the connector's file-write tool.** Most likely correct. Depends on
-   that tool's payload ceiling — current ads are 300 KB–3 MB, which base64 inflates by
-   ~33%. Needs testing against the real tool.
-2. **Upload to `assets`, let CI fetch the URL.** Cleaner for large files, but asset URLs
-   serve from the artifact origin and are unlikely to be reachable from a GitHub runner.
-   Probably a dead end.
-3. **Resize in-page before sending.** `canvas.toBlob()` down to ~1200px before base64.
-   Reduces the problem and is worth doing regardless, since the ad generator composites
-   its own output anyway.
+`tools/gen_velocity.py` does not read image files. It reads base64 data URIs out of
+`tools/velocity_imgs.json`, which is 2.0 MB:
 
-**Plan: 3 plus 1, verified with one real upload before building the rest.**
+```
+sienna.blur   "data:image/jpeg;base64,..."        10 KB
+sienna.shots  [{sharp: "data:image/jpeg;base64,..."}]  544 KB
+```
+
+So "upload a photo" currently means "rewrite a 2 MB JSON file" — a fresh 2 MB blob in
+git history per photo change, unreviewable diffs, and unresolvable conflicts. This has
+nothing to do with the connector; it would bite the Express app and the plugin equally.
+
+**The fix, in Phase 0:**
+
+1. **Photos become ordinary files** — `source-photos/<catalogue>/<item>/1.jpg` — and the
+   generator reads them from disk, base64-encoding at render time. `velocity_imgs.json`
+   becomes a build artifact or disappears. Migrate the existing five cars and confirm
+   with the byte-identical check `regen.sh` already supports.
+2. **The page resizes before upload** — `canvas.toBlob()` at ~1600px, quality 0.85. Not
+   a workaround: the generator composites into at most 1920px, so a 12 MP phone photo is
+   wasted bytes regardless. A 4 MB photo becomes ~300 KB, and ~400 KB of base64 through
+   a file-write tool is routine.
+
+With both, writing a photo is "create one small file", which is the operation every
+GitHub connector handles best.
 
 ### 6.3 Sharing and access
 
@@ -230,7 +244,7 @@ Photos land in the browser; they must end up in `<env>/ads/jpg/`. Three routes:
 2. **Consent prompts on first use.** `sample` and `mcp` ask the viewer the first time.
    Trigger them from a click, never on load, or the client meets a dialog before they
    understand the page.
-3. **Image payload ceiling** — §6.2.
+3. **Photos must leave `velocity_imgs.json` first** — §6.2. Phase 0 blocks B2.
 4. **Contract version.** Capabilities run against a runtime contract (0.2.85 at writing).
    Pin it deliberately; do not drift with `latest`.
 5. **Rate limits.** `sample` can return `rate_limited`. Back off, never loop.
@@ -243,7 +257,7 @@ Photos land in the browser; they must end up in `<env>/ads/jpg/`. Three routes:
 
 | Phase | Scope | Effort |
 |---|---|---|
-| **0** | `schema.json` + `manage.py`; generator reads manifests | 1.5 weeks |
+| **0** | `schema.json` + `manage.py`; generator reads manifests **and photos from disk** | 2 weeks |
 | **B1** | Artifact shell: tiles, `db` state, `user` gating | 3 days |
 | **B2** | Task view + `assets` upload + in-page resize | 3 days |
 | **B3** | `sample` plan/confirm loop with editable fields | 4 days |
