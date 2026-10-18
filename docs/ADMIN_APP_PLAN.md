@@ -1,5 +1,9 @@
 # Admin app — implementation plan (v2)
 
+> **See also [`AGENT_ADMIN_PLAN.md`](AGENT_ADMIN_PLAN.md)** — agent-driven alternatives
+> that need no hosting and no auth system. The Express app here is now the fallback,
+> not the baseline.
+
 Status: **proposal, nothing built.** Revised 18 Oct 2026 after your answers.
 Supersedes `ADMIN_PLATFORM_PLAN.md`.
 
