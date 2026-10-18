@@ -116,8 +116,9 @@ PHONE_HREF = "tel:+16134474520"
 EMAIL      = "omarranwar58@gmail.com"
 
 # Storefront copy. Kept here so the wording lives in one place.
-LEDE = ("Pre-owned vehicles for Ottawa drivers, priced to move. Everything you need to know is "
-        "right on the card — the rest is one phone call away.")
+LEDE = ("Pre-owned vehicles for Ottawa drivers, priced to move. Each listing shows the year, "
+        "mileage, engine and price up front. Get in touch to ask about a vehicle or to "
+        "arrange a viewing.")
 APP_LEDE = LEDE
 
 def contact(small=False):
