@@ -96,3 +96,21 @@ h1{font-family:var(--cond);font-weight:800;font-size:clamp(32px,6.5vw,60px);line
 
 footer{margin:64px 0 50px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .empty{margin:40px 0;padding:40px;text-align:center;color:var(--dim);border:1px dashed var(--line);border-radius:14px}
+
+/* contact — phone + email, landing page / lineup boards / vehicle pages */
+.contact{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin:24px 0 0;
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);
+  border-radius:10px;padding:14px 18px}
+.ct-label{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--soft)}
+.ct-phone{font-family:var(--cond);font-weight:800;font-size:23px;letter-spacing:.01em;
+  color:var(--acc);white-space:nowrap}
+.ct-mail{font-size:15px;font-weight:600;color:var(--ink);word-break:break-word}
+.ct-phone:hover,.ct-mail:hover{text-decoration:underline}
+.contact.sm{margin-top:16px;padding:11px 15px;gap:6px 14px}
+.contact.sm .ct-phone{font-size:19px}
+.contact.sm .ct-mail{font-size:14px}
+@media (max-width:560px){
+  .contact{gap:4px 14px}
+  .ct-label{width:100%}
+}

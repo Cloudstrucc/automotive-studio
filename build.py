@@ -81,6 +81,20 @@ def hero_src(car):
             return car["jpg"][f]
     return next(iter(car["jpg"].values()), "")
 
+# ---------- contact ----------
+PHONE      = "1 613 447 4520"
+PHONE_HREF = "tel:+16134474520"
+EMAIL      = "omarranwar58@gmail.com"
+
+def contact(small=False):
+    """Phone + email, shown on the landing page, each lineup board and each vehicle page."""
+    cls = "contact sm" if small else "contact"
+    return f"""<div class="{cls}">
+      <span class="ct-label">Call or email</span>
+      <a class="ct-phone" href="{PHONE_HREF}">{esc(PHONE)}</a>
+      <a class="ct-mail" href="mailto:{EMAIL}">{esc(EMAIL)}</a>
+    </div>"""
+
 # ---------- HTML fragments ----------
 def page(title, body, css_prefix, home):
     return f"""<!doctype html>
@@ -121,6 +135,7 @@ def build_landing(found):
       <p class="eyebrow">Autoline · Vehicle Ad Portal</p>
       <h1>Pre-Owned<br>Ad Portal</h1>
       <p class="lede">Velocity-direction ads for the current lineup, across three environments. Pick an environment to browse the vehicles, preview each format, and download the files.</p>
+      {contact()}
       <div class="note"><b>Environments.</b> <b>Development</b> is the working copy, <b>Review</b> is what you share for sign-off, and <b>Production</b> is the approved, publish-ready set. Each updates automatically whenever its folder changes.</div>
     </header>
     <div class="envs">{cards}
@@ -156,6 +171,7 @@ def build_env_index(key, label, desc, cars):
       <span class="badge {key}">{esc(label)}</span>
       <h1 style="margin-top:14px">The Lineup</h1>
       <p class="lede">{esc(desc)} Tap a vehicle to see all three ad formats and download the files. Every card is a complete ad — price, mileage and contact are on the image.</p>
+      {contact()}
     </header>
     {board}
     <footer><span class="brand" style="font-size:14px"><i></i>{esc(label)}</span>
@@ -184,7 +200,8 @@ def build_car_page(key, label, car):
     <div class="car-title">
       <div><span class="badge {key}">{esc(label)}</span>
         <h1 style="margin-top:12px">{esc(car['name'])}</h1>
-        <p class="lede" style="margin-top:6px">{esc(car['subtitle'])}</p></div>
+        <p class="lede" style="margin-top:6px">{esc(car['subtitle'])}</p>
+        {contact(small=True)}</div>
     </div>
     <div class="formats">{blocks}
     </div>

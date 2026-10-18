@@ -12,6 +12,8 @@ CARS = {
  "buick":    dict(year="20XX", make="Buick",          model="LaCrosse",       trim="Premium · Leather",    body="Sedan",     drive="FWD",     km="83,000", price="11,500", eng="3.6L V6", tag="Showroom Ready"),
 }
 ORDER=["sienna","mercedes","santafe","elantra","buick"]
+PHONE="1 613 447 4520"
+EMAIL="omarranwar58@gmail.com"
 FORMATS={"phone":(1080,2340),"social":(1080,1350),"landscape":(1920,1080)}
 F_COND="Archivo,'Arial Narrow','Helvetica Neue',Impact,sans-serif"
 F_BODY="Inter,'Helvetica Neue',Arial,sans-serif"
@@ -109,9 +111,14 @@ def velocity(W,H,c):
     o.append(f'<polygon points="{px0+slant:.1f},{priceT:.1f} {W},{priceT:.1f} {W},{priceB:.1f} {px0:.1f},{priceB:.1f}" fill="{acc}"/>')
     o.append(txt(W-3*u,priceT+3.3*u,"PRICED TO SELL",1.5*u,"#04140a",F_COND,"700",anchor="end",upper=True,ls=2))
     o.append(txt(W-3*u,priceB-2.4*u,ptxt,pfs,"#04140a",F_COND,"800",anchor="end"))
-    o.append(txt(m,H-3.4*u,"1 613 447 4520",2.2*u,"#fff",F_COND,"700",ls=.5))
-    _nw=tw("1 613 447 4520",2.2*u,0.56)
-    o.append(txt(m+_nw+2.4*u,H-3.4*u,"·   + tax & lic",1.9*u,"#aeb9c6",F_BODY,"500"))
+    # contact strip: phone, then email, then the tax note
+    cy=H-3.4*u; cx=m
+    o.append(txt(cx,cy,PHONE,2.2*u,"#fff",F_COND,"700",ls=.5))
+    cx+=tw(PHONE,2.2*u,0.56)+2.2*u
+    o.append(txt(cx,cy,"·",2.0*u,"#ffffff55",F_BODY,"600")); cx+=1.9*u
+    o.append(txt(cx,cy,EMAIL,1.95*u,acc,F_BODY,"600"))
+    # tax note pinned to the right margin so it can never collide with the email
+    o.append(txt(W-m,cy,"+ tax & lic",1.9*u,"#aeb9c6",F_BODY,"500",anchor="end"))
     o.append("</svg>"); return "".join(o)
 
 def main():
