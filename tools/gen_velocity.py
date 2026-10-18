@@ -1,9 +1,51 @@
 #!/usr/bin/env python3
 # VELOCITY only — full car always visible: blurred bg (same photo) fills the frame,
 # sharp uncropped car floats on the Velocity stage. Sizes keyed to u=min(W,H)/100.
-import json, os, html
+import base64, os, html, struct
 
-IMG = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"velocity_imgs.json")))
+HERE = os.path.dirname(os.path.abspath(__file__))
+PHOTOS = os.path.join(HERE, "photos")
+
+def _jpeg_size(data):
+    """Width and height from a JPEG's SOF marker. Stdlib only, like build.py."""
+    i = 2
+    while i < len(data):
+        if data[i] != 0xFF:
+            i += 1; continue
+        m = data[i+1]
+        if m in (0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF):
+            h, w = struct.unpack(">HH", data[i+5:i+9])
+            return w, h
+        if m in (0xD8,0xD9) or 0xD0 <= m <= 0xD7:
+            i += 2; continue
+        i += 2 + struct.unpack(">H", data[i+2:i+4])[0]
+    raise ValueError("no SOF marker in JPEG")
+
+def _uri(path):
+    with open(path, "rb") as fh:
+        return "data:image/jpeg;base64," + base64.b64encode(fh.read()).decode("ascii")
+
+def load_photos(slug):
+    """Read a vehicle's photos from tools/photos/<slug>/.
+
+    blur.jpg is the background; 1.jpg, 2.jpg ... are the shots, in order. Aspect
+    ratios come from the files themselves, rounded to 4dp -- which is exactly what
+    the hand-maintained velocity_imgs.json recorded, so output is unchanged."""
+    folder = os.path.join(PHOTOS, slug)
+    if not os.path.isdir(folder):
+        raise SystemExit(f"no photos for {slug!r}: expected {folder}")
+    shots = []
+    for n in range(1, 10):
+        f = os.path.join(folder, f"{n}.jpg")
+        if not os.path.isfile(f):
+            break
+        with open(f, "rb") as fh:
+            raw = fh.read()
+        w, h = _jpeg_size(raw)
+        shots.append({"sharp": _uri(f), "ar": round(w / h, 4)})
+    if not shots:
+        raise SystemExit(f"no shots for {slug!r}: expected {folder}/1.jpg")
+    return {"blur": _uri(os.path.join(folder, "blur.jpg")), "shots": shots}
 CARS = {
  "sienna":   dict(year="2016", make="Toyota",        model="Sienna",         trim="LE · 8-Passenger",     body="Minivan",   drive="FWD",     km="165,000", price="18,000", eng="3.5L V6", tag="Family Hauler"),
  "mercedes": dict(year="2014", make="Mercedes-Benz", model="E 350",          trim="4MATIC · Premium",     body="Sedan",     drive="AWD",     km="126,000", price="17,900", eng="3.5L V6", tag="Luxury AWD"),
@@ -29,7 +71,7 @@ def txt(x,y,s,fs,fill,family=F_BODY,weight="400",anchor="start",ls=0,upper=False
 
 def velocity(W,H,c):
     u=min(W,H)/100; m=6*u; acc="#19e36a"; uid=f'{c["key"]}{W}'
-    d=IMG[c["key"]]
+    d=load_photos(c["key"])
     o=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{F_BODY}">{IMPORT}']
     o.append('<defs>'
         f'<clipPath id="fr{uid}"><rect width="{W}" height="{H}"/></clipPath>'

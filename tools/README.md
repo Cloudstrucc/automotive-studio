@@ -5,7 +5,8 @@ an ad (year, price, mileage, contact, trim) — the website only handles whole i
 
 ## What's here
 - `gen_velocity.py`  — builds the 15 SVG ads (5 cars × 3 formats) into `output/svg/`.
-- `velocity_imgs.json` — the embedded car photos (blurred background + sharp shots).
+- `photos/<id>/` — each vehicle's source photos: `blur.jpg` for the background,
+  `1.jpg`, `2.jpg` … for the shots, in order.
 - `render_jpgs.py`   — renders those SVGs to JPGs in `output/jpg/`.
 - `requirements.txt` — pinned dependencies, so a rebuild months from now matches today's.
 - `regen.sh`         — does all of the above in one command.
@@ -35,5 +36,9 @@ byte-identical SVGs and JPGs. If a run shows unexpected diffs, the Playwright ve
 check `requirements.txt` against `tools/.venv/bin/pip freeze`.
 
 ## Adding a vehicle
-New photos mean new entries in `velocity_imgs.json` (base64 data URIs) plus a `CARS` entry
-and a line in each environment's `cars.json`. Ask Claude Code to help with the photo step.
+Drop the photos into `photos/<id>/` — `blur.jpg` plus `1.jpg`, `2.jpg` … — then add a
+`CARS` entry and a line in each environment's `cars.json`. Aspect ratios are read from
+the files; nothing needs recording by hand.
+
+`blur.jpg` is a small, heavily-downscaled copy of the first shot, used as the frame-filling
+background. Any low-resolution version of the same photo works.
