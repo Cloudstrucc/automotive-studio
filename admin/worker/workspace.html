@@ -108,6 +108,8 @@ pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:
 .dim{color:var(--dim)}
 .row{display:flex;align-items:center;gap:11px;padding:12px 17px;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
+.pick{cursor:pointer;border-radius:7px;margin:-5px -8px;padding:5px 8px}
+.pick:hover{background:var(--panel2)}
 .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--acc);
   border-radius:50%;display:inline-block;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -134,20 +136,32 @@ pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:
 <script>
 'use strict';
 
-/* ---------- configuration ----------
-   Catalogues and their three spec-slot labels. Held here rather than in the repository
-   for now: items carry their own labels, so this is only the default offered when
-   adding one. Moving them to manifests/catalogues/ is what would let the client
-   create a catalogue without a deploy. */
+/* ---------- configuration ---------- */
 const TARGET_ENV = 'development';
 const SITE = 'https://cloudstrucc.github.io/automotive-studio';
 const TARGET_URL = `${SITE}/${TARGET_ENV}/`;
+const itemUrl = slug => `${SITE}/${TARGET_ENV}/cars/${encodeURIComponent(slug)}.html`;
 
-const CATALOGUES = [
+/* Catalogues are repository data: <env>/manifests/catalogues/<slug>.json. That is what
+   lets the client add one without a deploy. This list is only what the tiles show
+   before the listing arrives, or if reading it fails. */
+const FALLBACK_CATALOGUES = [
   { slug:'vehicles', label:'Vehicles', mark:'VE', specs:['KM','Engine','Drivetrain'] },
   { slug:'tyres',    label:'Tyres',    mark:'TY', specs:['Size','Season','Condition'] },
   { slug:'services', label:'Services', mark:'SV', specs:['Duration','Includes','Warranty'] },
 ];
+const catalogues = () => (S.cats?.length ? S.cats : FALLBACK_CATALOGUES);
+
+/* A catalogue manifest carries spec_slots:[{label}]; the views want three plain
+   strings, so normalise on the way in. */
+function asCatalogue(m){
+  const specs = (m.spec_slots || []).map(s => s?.label).filter(Boolean);
+  while (specs.length < 3) specs.push('Spec ' + (specs.length + 1));
+  return {
+    slug: m.slug, label: m.label || m.slug, mark: (m.mark || m.slug.slice(0,2)).toUpperCase(),
+    specs: specs.slice(0,3), order: m.order ?? 99, _path: m._path,
+  };
+}
 
 const ACTIONS = [
   { id:'add',     label:'Add an item',      hint:'Describe it, I fill the fields', ready:true  },
@@ -178,9 +192,12 @@ const S = {
   publishing:false, published:null,
   me:null,                      // {email} from the Access assertion
   items:null,                   // {catalogue: [item]} from the repository
+  cats:null,                    // [catalogue] from <env>/manifests/catalogues/
   loadingItems:false, itemsError:null,
   editing:null,                 // the item being edited, when not a new one
   confirmDelete:null,
+  shared:null,                  // slug whose link was just copied
+  newCat:null,                  // the catalogue being created
 };
 
 const $ = s => document.querySelector(s);
@@ -189,8 +206,8 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c =>
 
 /* Views take a catalogue object; callers pass its slug. */
 function go(v, slug){
-  if (slug !== undefined) S.cat = CATALOGUES.find(c => c.slug === slug) || null;
-  S.view = v; S.error = null; render();
+  if (slug !== undefined) S.cat = catalogues().find(c => c.slug === slug) || null;
+  S.view = v; S.error = null; S.shared = null; render();
 }
 
 /* Served same-origin by the Worker, so there is no capability handshake and no
@@ -219,6 +236,10 @@ async function loadItems(){
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.error || `listing returned ${r.status}`);
     S.items = d.catalogues || {};
+    const defs = (d.catalogueDefs || []).map(asCatalogue);
+    if (defs.length) S.cats = defs;
+    // the open catalogue may have been renamed or removed under us
+    if (S.cat) S.cat = catalogues().find(c => c.slug === S.cat.slug) || S.cat;
   } catch (e) {
     S.itemsError = e?.message || 'could not read the catalogue';
     S.items = null;
@@ -342,7 +363,9 @@ function buildPayload(){
     : (f.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   const [make, ...rest] = String(f.title || '').trim().split(/\s+/);
   const manifest = {
-    schema: 1, slug, catalogue: S.cat.slug, status: 'published',
+    // an edit keeps whatever status the item had, so saving a deactivated item does
+    // not quietly put it back on the site
+    schema: 1, slug, catalogue: S.cat.slug, status: e?.status || 'published',
     order: e?.order ?? 99,
     make: make || null, model: rest.join(' ') || null,
     subtitle: f.subtitle, year: f.year, price: f.price,
@@ -418,6 +441,126 @@ async function deleteItem(slug){
   S.publishing = false; render();
 }
 
+/* ---------- deactivate / activate ----------
+   The generator only renders an item when its status is "published", so flipping the
+   status is all it takes to pull something off the site. Nothing is deleted: the
+   manifest and its photos stay, so activating it again brings the item back as it was. */
+async function setStatus(slug, status){
+  const it = (S.items?.[S.cat.slug] || []).find(x => x.slug === slug);
+  if (!it) return;
+  const { _path, _catalogue, _broken, ...manifest } = it;
+  manifest.status = status;
+  manifest.audit = { ...(manifest.audit || {}), updated_at: new Date().toISOString() };
+  const name = [it.year, it.make, it.model].filter(Boolean).join(' ') || slug;
+
+  S.publishing = true; S.error = null; render();
+  try {
+    await write({
+      message: `${status === 'published' ? 'Activate' : 'Deactivate'} ${name} in ${TARGET_ENV}`,
+      files: [{ path: _path, contentsBase64: b64(JSON.stringify(manifest, null, 2)) }],
+    });
+    await loadItems();
+  } catch (e) {
+    S.error = `Could not ${status === 'published' ? 'activate' : 'deactivate'} it: `
+            + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
+}
+
+/* ---------- share ----------
+   Each published item has its own page on the preview site. Copy rather than open:
+   a link you can paste into a message is the thing worth having. */
+async function shareItem(slug){
+  const url = itemUrl(slug);
+  if (await copy(url)) {
+    S.shared = slug; S.error = null;
+    setTimeout(() => { if (S.shared === slug){ S.shared = null; render(); } }, 4000);
+  } else {
+    S.shared = null;
+    S.error = 'Could not reach the clipboard. The link is ' + url;
+  }
+  render();
+}
+
+/* execCommand first: it runs inside the click that called us, so it works where the
+   async clipboard API is still waiting on a permission the viewer has not granted. */
+async function copy(text){
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) return true;
+  } catch {}
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  return false;
+}
+
+/* ---------- catalogues ----------
+   A catalogue is a manifest like any other, so adding one is a commit, not a deploy. */
+function startCatalogue(){
+  S.newCat = { label:'', specs:['','',''], heading:'', lede:'' };
+  go('newcat');
+}
+
+async function createCatalogue(){
+  const c = S.newCat;
+  const label = (c.label || '').trim();
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  if (!label)                        { S.error = 'Give the catalogue a name.'; return render(); }
+  if (!/^[a-z][a-z0-9-]*$/.test(slug)){ S.error = 'That name has no letters I can make a folder from.'; return render(); }
+  if (catalogues().some(x => x.slug === slug)) { S.error = `There is already a ${label} catalogue.`; return render(); }
+
+  const specs = c.specs.map(s => (s || '').trim()).filter(Boolean);
+  if (specs.length !== 3) { S.error = 'Three spec slots, please — that is what the ad artwork draws.'; return render(); }
+
+  const manifest = {
+    schema: 1, slug, status: 'published',
+    label, mark: slug.slice(0,2).toUpperCase(),
+    order: Math.max(0, ...catalogues().map(x => x.order ?? 0)) + 1,
+    heading: (c.heading || label).trim(),
+    lede: (c.lede || '').trim() || null,
+    spec_slots: specs.map(s => ({ label: s })),
+    audit: { updated_at: new Date().toISOString() },
+  };
+
+  S.publishing = true; S.error = null; render();
+  try {
+    await write({
+      message: `Add the ${label} catalogue to ${TARGET_ENV}`,
+      files: [{
+        path: `${TARGET_ENV}/manifests/catalogues/${slug}.json`,
+        contentsBase64: b64(JSON.stringify(manifest, null, 2)),
+      }],
+    });
+    // open the new catalogue from the manifest we just wrote rather than waiting for
+    // the listing to catch up -- GitHub's tree is not read-your-writes
+    S.cat = asCatalogue(manifest);
+    S.newCat = null; S.error = null;
+    await loadItems();
+    S.view = 'catalogue';
+  } catch (e) {
+    S.error = 'Could not create it: ' + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
+}
+
+/* One same-origin POST to the commit endpoint, with the failure modes in one place. */
+async function write(body){
+  const res = await fetch('/write', {
+    method:'POST',
+    headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ files: [], deletes: [], ...body }),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
+  return out;
+}
+
 function saveDraft(){
   const payload = buildPayload();
   storeDraft({
@@ -490,18 +633,24 @@ function vWorkspace(){
     <p class="lede">Pick an area, describe the change in plain English, and I'll show you
       exactly what I plan to do before anything is written.</p>
     <div class="grid">
-      ${CATALOGUES.map(c => {
-        const n = S.items?.[c.slug]?.length;
+      ${catalogues().map(c => {
+        const n = S.items ? (S.items[c.slug]?.length || 0) : undefined;
         const sub = S.loadingItems ? 'loading…'
                   : n === undefined ? `Slots: ${esc(c.specs.join(' · '))}`
                   : `${n} item${n===1?'':'s'} · ${esc(c.specs.join(' · '))}`;
         return `
-        <button class="tile" onclick="go('catalogue','${c.slug}')">
-          <div class="mk">${c.mark}</div>
+        <button class="tile" onclick="go('catalogue','${esc(c.slug)}')">
+          <div class="mk">${esc(c.mark)}</div>
           <h2>${esc(c.label)}</h2>
           <p>${sub}</p>
           <div class="go">Open &rarr;</div>
         </button>`;}).join('')}
+      <button class="tile" onclick="startCatalogue()" style="border-style:dashed">
+        <div class="mk" style="background:transparent;border:1px dashed var(--line);color:var(--dim)">+</div>
+        <h2>New catalogue</h2>
+        <p>Tyres, detailing, winter storage &mdash; whatever you sell next</p>
+        <div class="go">Create &rarr;</div>
+      </button>
     </div>
     ${drafts}`;
 }
@@ -513,26 +662,43 @@ function vCatalogue(){
     : list.map(it => {
         const name = [it.year, it.make, it.model].filter(Boolean).join(' ') || it.slug;
         const price = it.price ? `$${esc(it.price)}` : '';
-        const warn = !it.images?.length ? '<span class="tag">no photo</span>' : '';
+        const live = it.status === 'published';
+        const tags = [
+          !it.images?.length ? '<span class="tag">no photo</span>' : '',
+          live ? '' : '<span class="tag">deactivated</span>',
+        ].join(' ');
+        const s = esc(it.slug);
         return `<div class="row">
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600">${esc(name)} ${warn}</div>
+          <div class="pick" style="flex:1;min-width:0" onclick="editItem('${s}')"
+               title="Open ${esc(name)}">
+            <div style="font-weight:600">${esc(name)} ${tags}</div>
             <div class="dim" style="font-size:12.5px">${esc(it.subtitle || '')} ${price}</div>
           </div>
           ${S.confirmDelete === it.slug
-            ? `<button class="btn ghost" onclick="S.confirmDelete=null;render()">Cancel</button>
-               <button class="btn" style="background:#f5a623" onclick="deleteItem('${esc(it.slug)}')"
+            ? `<span class="dim" style="font-size:12.5px">Delete for good?</span>
+               <button class="btn ghost" onclick="S.confirmDelete=null;render()">Cancel</button>
+               <button class="btn" style="background:#f5a623" onclick="deleteItem('${s}')"
                        ${S.publishing?'disabled':''}>
                  ${S.publishing ? 'Removing…' : 'Really remove'}
                </button>`
-            : `<button class="btn ghost" onclick="editItem('${esc(it.slug)}')">Edit</button>
-               <button class="btn ghost" onclick="S.confirmDelete='${esc(it.slug)}';render()">Remove</button>`}
+            : `${S.shared === it.slug
+                 ? '<span class="chip ok" style="white-space:nowrap">Link copied</span>'
+                 : `<button class="btn ghost" onclick="shareItem('${s}')"
+                            ${live?'':'title="Deactivated items have no page on the site yet"'}>Share</button>`}
+               <button class="btn ghost" onclick="setStatus('${s}','${live?'draft':'published'}')"
+                       ${S.publishing || (!live && !it.images?.length) ? 'disabled' : ''}
+                       title="${live ? 'Take it off the site, keep it here'
+                                     : (it.images?.length ? 'Put it back on the site'
+                                        : 'Add a photo first — a published item needs one')}"
+                       >${live ? 'Deactivate' : 'Activate'}</button>
+               <button class="btn ghost" onclick="S.confirmDelete='${s}';render()">Delete</button>`}
         </div>`;
       }).join('');
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / ${esc(S.cat.label)}</div>
     <h1>${esc(S.cat.label)}</h1>
-    <p class="lede">What is on the preview site now. Editing or removing republishes it.</p>
+    <p class="lede">What is on the preview site now. Press an item to open it. Deactivating
+      takes it off the site but keeps it here; deleting removes it for good.</p>
 
     ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
@@ -548,6 +714,78 @@ function vCatalogue(){
         Add ${esc(S.cat.label.replace(/s$/,'').toLowerCase())}
       </button>
       <button class="btn ghost" onclick="go('workspace')">Back</button>
+    </div>`;
+}
+
+/* Updated in place rather than by re-rendering: a full render on every keystroke
+   would take the cursor out of the field. */
+function showSlug(){
+  const el = $('#slugHint');
+  if (!el) return;
+  const slug = (S.newCat?.label || '').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  el.innerHTML = slug ? `Stored as <code>${esc(slug)}</code>.`
+                      : 'The folder name comes from this.';
+}
+
+function vNewCat(){
+  const c = S.newCat || {};
+  const slug = (c.label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / New catalogue</div>
+    <h1>New catalogue</h1>
+    <p class="lede">A catalogue is a group of things you sell &mdash; vehicles, tyres, a service.
+      Each one gets its own tile here and its own three spec slots, which is what the ad
+      artwork draws for every item in it.</p>
+
+    ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div class="card" style="margin-top:22px;max-width:620px">
+      <div class="card-h">The catalogue</div>
+      <div class="card-b">
+        <div class="fld">
+          <label class="lab">Name</label>
+          <input class="in" value="${esc(c.label)}" placeholder="e.g. Detailing"
+                 oninput="S.newCat.label=this.value;showSlug()">
+        </div>
+        <p class="dim" id="slugHint" style="font-size:12.5px;margin:0 0 16px">
+          ${slug ? `Stored as <code>${esc(slug)}</code>.` : 'The folder name comes from this.'}
+        </p>
+        <div class="fld">
+          <label class="lab">Heading</label>
+          <input class="in" value="${esc(c.heading)}" placeholder="shown above the list on the site"
+                 oninput="S.newCat.heading=this.value">
+        </div>
+        <div class="fld">
+          <label class="lab">Blurb</label>
+          <input class="in" value="${esc(c.lede)}" placeholder="one line, optional"
+                 oninput="S.newCat.lede=this.value">
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:620px">
+      <div class="card-h">Spec slots</div>
+      <div class="card-b">
+        ${[0,1,2].map(i => `
+          <div class="fld">
+            <label class="lab">Slot ${i+1}</label>
+            <input class="in ${c.specs?.[i]?'':'missing'}" value="${esc(c.specs?.[i])}"
+                   placeholder="${['e.g. Duration','e.g. Includes','e.g. Warranty'][i]}"
+                   oninput="S.newCat.specs[${i}]=this.value">
+          </div>`).join('')}
+        <p class="dim" style="font-size:12.5px;margin:12px 0 0">
+          Three labels, the same for every item in this catalogue. Vehicles use
+          KM &middot; Engine &middot; Drivetrain.
+        </p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:9px">
+      <button class="btn" onclick="createCatalogue()" ${S.publishing?'disabled':''}>
+        ${S.publishing ? '<span class="spin"></span> Creating' : 'Create the catalogue'}
+      </button>
+      <button class="btn ghost" onclick="S.newCat=null;go('workspace')">Cancel</button>
     </div>`;
 }
 
@@ -696,8 +934,12 @@ function vResult(){
             <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>,
             on the <strong>preview</strong> site. Rebuilds in about a minute.</p>
           <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
-            <a class="btn" target="_blank" href="${TARGET_URL}">View the preview site</a>
-            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];S.editing=null;go('workspace')">
+            <a class="btn" target="_blank" rel="noopener"
+               href="${itemUrl(p.files[0].contents.slug)}">View this item</a>
+            <button class="btn ghost" onclick="shareItem('${esc(p.files[0].contents.slug)}')">
+              ${S.shared ? 'Link copied' : 'Copy its link'}
+            </button>
+            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];S.editing=null;S.shared=null;go('workspace')">
               Make another change
             </button>
           </div>
@@ -708,6 +950,11 @@ function vResult(){
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Ready to publish</div>
     <h1>Ready to publish</h1>
     <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
+
+    ${p.files[0].contents.status === 'published' ? '' : `<div class="note" style="margin-top:20px">
+      <b>This item is deactivated.</b> Saving keeps it that way &mdash; it stays here but
+      off the site. Activate it from the ${esc(S.cat.label)} list when you want it back.
+    </div>`}
 
     ${(S.photos.length || S.editing?.images?.length) ? '' : `<div class="note" style="margin-top:20px">
       <b>This item has no photo.</b> A published item needs at least one &mdash; the ad
@@ -745,8 +992,11 @@ function vResult(){
 
 function render(){
   if (!S.ready){ $('#view').innerHTML = '<p class="dim" style="padding:40px 0">Starting…</p>'; return; }
+  // these views all read S.cat; a catalogue that has gone away must not take the app down
+  if (!S.cat && ['catalogue','task','plan','result'].includes(S.view)) S.view = 'workspace';
   const v = S.view==='workspace' ? vWorkspace()
           : S.view==='catalogue' ? vCatalogue()
+          : S.view==='newcat'    ? vNewCat()
           : S.view==='me'        ? vMe()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()

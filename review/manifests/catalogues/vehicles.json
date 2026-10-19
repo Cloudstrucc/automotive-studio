@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "slug": "vehicles",
+  "status": "published",
+  "label": "Vehicles",
+  "mark": "VE",
+  "order": 1,
+  "heading": "The Lineup",
+  "lede": "Pre-owned vehicles for Ottawa drivers, priced to move.",
+  "spec_slots": [
+    {
+      "label": "KM"
+    },
+    {
+      "label": "Engine"
+    },
+    {
+      "label": "Drivetrain"
+    }
+  ]
+}

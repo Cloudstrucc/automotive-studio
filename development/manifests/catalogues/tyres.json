@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "slug": "tyres",
+  "status": "published",
+  "label": "Tyres",
+  "mark": "TY",
+  "order": 2,
+  "heading": "Tyres",
+  "lede": "Sets and singles, fitted or loose.",
+  "spec_slots": [
+    {
+      "label": "Size"
+    },
+    {
+      "label": "Season"
+    },
+    {
+      "label": "Condition"
+    }
+  ]
+}

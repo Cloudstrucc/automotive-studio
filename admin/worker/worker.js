@@ -102,24 +102,49 @@ async function handleItems(request, env) {
   }
 
   const prefix = `${which}/manifests/items/`;
-  const blobs = (tree.tree || []).filter(n =>
-    n.type === 'blob' && n.path.startsWith(prefix) && n.path.endsWith('.json'));
+  const catPrefix = `${which}/manifests/catalogues/`;
+  const nodes = (tree.tree || []).filter(n => n.type === 'blob' && n.path.endsWith('.json'));
+  const blobs = nodes.filter(n => n.path.startsWith(prefix));
+  const catBlobs = nodes.filter(n => n.path.startsWith(catPrefix));
 
-  const items = await Promise.all(blobs.map(async n => {
-    try {
-      const blob = await gh(env, `https://api.github.com/repos/${env.REPO}/git/blobs/${n.sha}`);
-      const m = JSON.parse(b64decode(blob.content.replace(/\n/g, '')));
-      return { ...m, _path: n.path, _catalogue: n.path.slice(prefix.length).split('/')[0] };
-    } catch {
-      return { _path: n.path, _broken: true, _catalogue: n.path.slice(prefix.length).split('/')[0] };
-    }
-  }));
+  // One pass for both lists: the catalogues are the admin's tiles, the items their rows.
+  const [items, cats] = await Promise.all([
+    Promise.all(blobs.map(async n => {
+      const cat = n.path.slice(prefix.length).split('/')[0];
+      try {
+        const m = JSON.parse(await blobText(env, n.sha));
+        return { ...m, _path: n.path, _catalogue: cat };
+      } catch {
+        return { _path: n.path, _broken: true, _catalogue: cat };
+      }
+    })),
+    Promise.all(catBlobs.map(async n => {
+      try {
+        const m = JSON.parse(await blobText(env, n.sha));
+        return { ...m, _path: n.path };
+      } catch {
+        return null;
+      }
+    })),
+  ]);
 
   items.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || String(a.slug).localeCompare(String(b.slug)));
 
   const byCatalogue = {};
   for (const it of items) (byCatalogue[it._catalogue] ||= []).push(it);
-  return json({ ok: true, env: which, catalogues: byCatalogue, count: items.length });
+
+  const defs = cats.filter(c => c && c.slug)
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || String(a.slug).localeCompare(String(b.slug)));
+
+  return json({
+    ok: true, env: which, catalogues: byCatalogue,
+    catalogueDefs: defs, count: items.length,
+  });
+}
+
+async function blobText(env, sha) {
+  const blob = await gh(env, `https://api.github.com/repos/${env.REPO}/git/blobs/${sha}`);
+  return b64decode(blob.content.replace(/\n/g, ''));
 }
 
 /* ---------- POST /api/plan ----------

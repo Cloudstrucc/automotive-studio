@@ -11,9 +11,20 @@ POST /api/plan              description -> validated plan JSON (Anthropic, serve
 POST /write                 files and/or deletes -> one commit on allowlisted paths
 ```
 
-Deleting an item removes its manifest and source photos. Its rendered ads are left
-alone deliberately: CI rebuilds `<env>/ads/` from whatever manifests remain, so they
+`/api/items` returns two things: the items, grouped by catalogue, and the catalogue
+definitions themselves — `<env>/manifests/catalogues/<slug>.json`. Catalogues are
+repository data rather than a list in the page, so the client can add one without a
+deploy.
+
+An item is on the site only while its `status` is `published`. **Deactivating** writes
+`draft` and leaves everything else alone, so the item vanishes from the site on the
+next build and comes back unchanged when it is activated again. **Deleting** removes
+its manifest and source photos for good. Rendered ads are left alone in both cases,
+deliberately: CI rebuilds `<env>/ads/` from whatever manifests remain, so they
 disappear on the next build without the admin needing write access to them.
+
+Activating an item with no photo is refused by the same guardrail that refuses
+publishing one — a published item needs at least one image.
 
 ---
 
