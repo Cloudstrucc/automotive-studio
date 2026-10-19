@@ -18,11 +18,11 @@
     },
     {
       "label": "Engine",
-      "value": "2.4L i4"
+      "value": "2.4L I4"
     },
     {
       "label": "Drivetrain",
-      "value": "FWD / AWD"
+      "value": "FWD/AWD"
     }
   ],
   "images": [
@@ -33,6 +33,6 @@
   ],
   "background": "source-photos/vehicles/santafe/blur.jpg",
   "audit": {
-    "updated_at": "2026-10-19T03:20:33.416Z"
+    "updated_at": "2026-10-19T03:21:22.470Z"
   }
 }
