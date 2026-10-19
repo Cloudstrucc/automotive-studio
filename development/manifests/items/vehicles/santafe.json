@@ -22,7 +22,7 @@
     },
     {
       "label": "Drivetrain",
-      "value": "FWD/AWD"
+      "value": "FWD / AWD"
     }
   ],
   "images": [
@@ -33,6 +33,6 @@
   ],
   "background": "source-photos/vehicles/santafe/blur.jpg",
   "audit": {
-    "updated_at": "2026-10-19T03:19:25.991Z"
+    "updated_at": "2026-10-19T03:20:33.416Z"
   }
 }
