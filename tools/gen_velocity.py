@@ -79,6 +79,9 @@ EMAIL="omarranwar58@gmail.com"
 # How much of a single hero photo must stay visible when it is cropped to fill a
 # wider box. 0.55 keeps the subject and trims sky and foreground.
 MIN_VISIBLE=0.55
+# A wide frame has far less height to work with, so a tall photo there is allowed a
+# deeper crop before it would otherwise shrink to a strip.
+MIN_VISIBLE_WIDE=0.45
 FORMATS={"phone":(1080,2340),"social":(1080,1350),"landscape":(1920,1080)}
 F_COND="Archivo,'Arial Narrow','Helvetica Neue',Impact,sans-serif"
 F_BODY="Inter,'Helvetica Neue',Arial,sans-serif"
@@ -115,7 +118,15 @@ def velocity(W,H,c):
     o.append(f'<rect width="{W}" height="{H}" fill="url(#vg{uid})"/>')
     # ── photo zone (safe region above the text block) ──
     portrait = W<=H
-    cardTop=12*u; cardBottom=H-46*u
+    cardTop=12*u
+    if portrait:
+        cardBottom=H-46*u
+    else:
+        # Landscape: the title sits on the left, so the photo can run down to just
+        # above the spec rules rather than stopping level with the year line. Keep
+        # these in step with the bottom text block below.
+        _priceT=(H-8*u)-11*u
+        cardBottom=(_priceT-3*u-9*u)-1.6*u
     regionH=cardBottom-cardTop; rad=1.8*u
     shots=d["shots"]
     def photo(x,y,w,h,src,i):
@@ -158,7 +169,7 @@ def velocity(W,H,c):
             # need not match the photo -- widen it and let the photo crop, down to
             # MIN_VISIBLE of its height. Visible fraction is (h/w)*ar.
             ch=avail; cw=ch*ar
-            cw=min(maxW, ch*ar/MIN_VISIBLE)
+            cw=min(maxW, ch*ar/(MIN_VISIBLE if portrait else MIN_VISIBLE_WIDE))
         cx=(W-cw)/2; cy=(cardTop+pad) if portrait else (cardTop+(regionH-ch)/2)
         o.append(f'<ellipse cx="{cx+cw/2:.1f}" cy="{cy+ch/2:.1f}" rx="{cw*0.62:.1f}" ry="{ch*0.6:.1f}" fill="url(#vglow{uid})"/>')
         photo(cx,cy,cw,ch,shots[0]["sharp"],0)
