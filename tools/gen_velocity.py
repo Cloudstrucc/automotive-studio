@@ -76,6 +76,9 @@ def load_photos(item):
     return {"blur": _uri(bg_path), "shots": shots}
 PHONE="1 613 447 4520"
 EMAIL="omarranwar58@gmail.com"
+# How much of a single hero photo must stay visible when it is cropped to fill a
+# wider box. 0.55 keeps the subject and trims sky and foreground.
+MIN_VISIBLE=0.55
 FORMATS={"phone":(1080,2340),"social":(1080,1350),"landscape":(1920,1080)}
 F_COND="Archivo,'Arial Narrow','Helvetica Neue',Impact,sans-serif"
 F_BODY="Inter,'Helvetica Neue',Arial,sans-serif"
@@ -149,7 +152,13 @@ def velocity(W,H,c):
         pad=3.5*u if portrait else 0
         avail=regionH-pad
         cw=maxW; ch=cw/ar
-        if ch>avail: ch=avail; cw=ch*ar
+        if ch>avail:
+            # Height-limited: a tall phone photo at its own aspect ratio ends up a
+            # narrow strip in a wide frame. The image is drawn with slice, so the box
+            # need not match the photo -- widen it and let the photo crop, down to
+            # MIN_VISIBLE of its height. Visible fraction is (h/w)*ar.
+            ch=avail; cw=ch*ar
+            cw=min(maxW, ch*ar/MIN_VISIBLE)
         cx=(W-cw)/2; cy=(cardTop+pad) if portrait else (cardTop+(regionH-ch)/2)
         o.append(f'<ellipse cx="{cx+cw/2:.1f}" cy="{cy+ch/2:.1f}" rx="{cw*0.62:.1f}" ry="{ch*0.6:.1f}" fill="url(#vglow{uid})"/>')
         photo(cx,cy,cw,ch,shots[0]["sharp"],0)
