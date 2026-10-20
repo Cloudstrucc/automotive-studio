@@ -20,6 +20,15 @@ img{display:block;max-width:100%}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--cond);font-weight:800;text-transform:uppercase;letter-spacing:.01em;font-size:16px}
 .brand i{width:14px;height:14px;background:var(--acc);clip-path:polygon(0 0,100% 0,65% 100%,0 100%)}
 
+/* category menu — emitted only once a second public category exists, so a site
+   with vehicles alone carries none of this */
+.nav{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-left:auto}
+.nav a{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--soft);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+.nav a:hover{color:var(--acc);border-color:var(--acc)}
+.nav a[aria-current="page"]{color:var(--acc-ink);background:var(--acc);border-color:var(--acc)}
+@media(max-width:560px){.nav{margin-left:0;width:100%}}
+
 /* env badge */
 .badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--cond);font-weight:800;text-transform:uppercase;
   letter-spacing:.14em;font-size:12px;padding:5px 11px;border-radius:100px;border:1px solid}

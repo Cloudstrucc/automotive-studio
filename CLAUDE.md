@@ -38,6 +38,24 @@ and **omarranwar58@gmail.com**.
 - `assets/style.css` is the shared stylesheet (Velocity dark theme). Edit the look here.
 - `_site/` is build output — **never commit it** (see `.gitignore`).
 
+## Categories (catalogues)
+Each category gets its own route — **except `vehicles`**, which is the default and *is*
+the environment: its board stays at `<env>/` and its items at `<env>/cars/<slug>.html`,
+so there is deliberately no `/vehicles/` route. Any other category lives at
+`<env>/<slug>/`, board and item pages together.
+
+A category is defined by `<env>/manifests/catalogues/<slug>.json`: `status`
+(`public` / `draft` / `retired`), `in_menu` (public but kept out of the menu →
+direct link only), `order`, `heading` and `lede` (both printed on its page).
+The menu is emitted only once **two** categories are public with at least one
+published item, so with vehicles alone the site looks exactly as it always did.
+
+Items are `published` or `draft` — two states, not three. Deleting a category moves its
+items to `manifests/items/orphan/` instead of destroying them; nothing in `orphan` ever
+renders. **`docs/CATEGORIES.md` is the full write-up** — read it before changing the
+routes or the status words, because `build.py`, `tools/gen_velocity.py` and the admin
+all have to agree on them.
+
 ## The one hard rule: file naming
 Ad images live in `<env>/ads/jpg/` named **`<vehicleId>_<format>.jpg`**, with matching optional
 SVGs in `<env>/ads/svg/`:

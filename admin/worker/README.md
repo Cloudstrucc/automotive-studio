@@ -16,15 +16,28 @@ definitions themselves — `<env>/manifests/catalogues/<slug>.json`. Catalogues 
 repository data rather than a list in the page, so the client can add one without a
 deploy.
 
-An item is on the site only while its `status` is `published`. **Deactivating** writes
-`draft` and leaves everything else alone, so the item vanishes from the site on the
+An item is on the site only while its `status` is `published` **and** its category is
+`public`. There are two item states, not three: **Save as a draft** at creation and
+**Deactivate** later both write `draft`, which is the one way to be off the site.
+`docs/CATEGORIES.md` records why, along with the category states (`public` / `draft` /
+`retired`), the `in_menu` sitemap flag, and the route each category gets.
+
+Deactivating leaves everything else alone, so the item vanishes from the site on the
 next build and comes back unchanged when it is activated again. **Deleting** removes
 its manifest and source photos for good. Rendered ads are left alone in both cases,
 deliberately: CI rebuilds `<env>/ads/` from whatever manifests remain, so they
 disappear on the next build without the admin needing write access to them.
 
-Activating an item with no photo is refused by the same guardrail that refuses
-publishing one — a published item needs at least one image.
+**Deleting a category** never destroys what it held. In the one commit that removes
+the category manifest, each of its items is rewritten into
+`manifests/items/orphan/<slug>.json` as a draft, with `audit.orphaned_from` recording
+where it came from. The orphan pen is not a category — no manifest, no route, nothing
+on the site — and the admin shows it as its own tile so the items can be given a
+category again.
+
+`/write` refuses, before committing: a published item with no image; and a published
+item whose `catalogue` is missing, is `orphan`, or disagrees with the folder it is
+being written into. Activating an item with no photo hits the same guardrail.
 
 ---
 

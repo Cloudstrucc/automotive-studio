@@ -60,12 +60,16 @@ h1{font-size:clamp(26px,4.4vw,38px)}
 
 label.lab{font-family:var(--cond);font-size:10.5px;text-transform:uppercase;letter-spacing:.13em;
   color:var(--soft);font-weight:700;display:block;margin-bottom:6px}
-input.in,textarea.in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+input.in,textarea.in,select.in{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
   color:var(--ink);padding:10px 13px;font-size:14px;font-family:inherit}
-input.in:focus,textarea.in:focus{outline:none;border-color:var(--acc)}
+input.in:focus,textarea.in:focus,select.in:focus{outline:none;border-color:var(--acc)}
 textarea.in{resize:vertical;min-height:100px}
 input.in::placeholder,textarea.in::placeholder{color:#55657a}
-input.in.missing{border-color:var(--warn)}
+input.in.missing,select.in.missing{border-color:var(--warn)}
+.tile .st{float:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--warn);background:rgba(245,166,35,.13);padding:3px 7px;border-radius:4px}
+.toggle{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--soft);cursor:pointer}
+.toggle input{accent-color:var(--acc);width:16px;height:16px}
 
 .btn{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:9px;background:var(--acc);
   color:var(--acc-ink);font-weight:700;font-size:14px;padding:11px 19px;cursor:pointer;font-family:inherit}
@@ -140,17 +144,67 @@ pre.payload{background:var(--panel2);border:1px solid var(--line);border-radius:
 const TARGET_ENV = 'development';
 const SITE = 'https://cloudstrucc.github.io/automotive-studio';
 const TARGET_URL = `${SITE}/${TARGET_ENV}/`;
-const itemUrl = slug => `${SITE}/${TARGET_ENV}/cars/${encodeURIComponent(slug)}.html`;
+
+/* The route shape, which has to match build.py exactly (see docs/CATEGORIES.md).
+   The default category IS the environment: its board is <env>/ and its items stay
+   under <env>/cars/, so there is no /vehicles/ route and no old link broke. Every
+   other category gets its own folder, board and item pages together. */
+const DEFAULT_CATALOGUE = 'vehicles';
+const itemUrl = (slug, cat) => {
+  const c = cat || S.cat?.slug || DEFAULT_CATALOGUE;
+  const dir = c === DEFAULT_CATALOGUE ? 'cars' : encodeURIComponent(c);
+  return `${SITE}/${TARGET_ENV}/${dir}/${encodeURIComponent(slug)}.html`;
+};
+/* Folders the generated site already writes at an environment root, so a category
+   cannot have one as its slug. build.py refuses these too. */
+const RESERVED_ROUTES = ['ads', 'assets', 'cars', 'production', 'review', 'development'];
+
+/* Where items whose category was deleted are parked. Not a category: no manifest, no
+   route, no menu entry, nothing on the site. It exists so a deletion never destroys
+   anything -- the items wait here until they are given a category again. */
+const ORPHAN_CATALOGUE = 'orphan';
+
+/* A category's three states. draft and retired both render nothing; they are kept
+   apart because they read differently in this list -- not launched yet, versus we
+   stopped selling it. */
+const CAT_STATES = [
+  ['public',  'On the site', 'Its page is live'],
+  ['draft',   'Draft',       'Not on the site yet'],
+  ['retired', 'Retired',     'Taken off the site, kept here'],
+];
+
+/* An item is on the site or it is not: one off-the-site state, reached either by
+   saving a draft or by deactivating something that was live. docs/CATEGORIES.md says
+   why there is no third spelling. */
+const ITEM_STATES = [
+  ['published', 'Put it on the site', 'Visible as soon as the site rebuilds'],
+  ['draft',     'Save as a draft',    'Kept here, nothing published'],
+];
+
+const slugify = s => String(s || '').trim().toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /* Catalogues are repository data: <env>/manifests/catalogues/<slug>.json. That is what
    lets the client add one without a deploy. This list is only what the tiles show
-   before the listing arrives, or if reading it fails. */
+   before the listing arrives, or if reading it fails.
+   Only what actually exists is listed, so a category can never be offered as a place
+   to put something when there is no manifest behind it. */
 const FALLBACK_CATALOGUES = [
-  { slug:'vehicles', label:'Vehicles', mark:'VE', specs:['KM','Engine','Drivetrain'] },
-  { slug:'tyres',    label:'Tyres',    mark:'TY', specs:['Size','Season','Condition'] },
-  { slug:'services', label:'Services', mark:'SV', specs:['Duration','Includes','Warranty'] },
+  { slug:'vehicles', label:'Vehicles', mark:'VE', specs:['KM','Engine','Drivetrain'],
+    order:1, status:'public', in_menu:true, heading:'The Lineup', lede:'' },
 ];
 const catalogues = () => (S.cats?.length ? S.cats : FALLBACK_CATALOGUES);
+
+/* The tiles on the workspace: every category, plus the orphan pen while it holds
+   anything. The pen is never a place you can put something, so it is kept out of
+   catalogues() and only added here. */
+const orphanCount = () => (S.items?.[ORPHAN_CATALOGUE]?.length || 0);
+const ORPHAN_TILE = {
+  slug: ORPHAN_CATALOGUE, label: 'Needs a category', mark: '?',
+  specs: ['Spec 1', 'Spec 2', 'Spec 3'], order: 9999,
+  status: 'draft', in_menu: false, heading: 'Needs a category', lede: '', _orphan: true,
+};
+const tiles = () => orphanCount() ? [...catalogues(), ORPHAN_TILE] : catalogues();
 
 /* A catalogue manifest carries spec_slots:[{label}]; the views want three plain
    strings, so normalise on the way in. */
@@ -160,8 +214,16 @@ function asCatalogue(m){
   return {
     slug: m.slug, label: m.label || m.slug, mark: (m.mark || m.slug.slice(0,2)).toUpperCase(),
     specs: specs.slice(0,3), order: m.order ?? 99, _path: m._path,
+    // "published" is the spelling from before a category had three states
+    status: m.status === 'published' ? 'public' : (m.status || 'public'),
+    in_menu: m.in_menu !== false,
+    heading: m.heading || m.label || m.slug,
+    lede: m.lede || '',
   };
 }
+
+const onSite = c => c.status === 'public';
+const catState = s => CAT_STATES.find(x => x[0] === s) || CAT_STATES[1];
 
 const ACTIONS = [
   { id:'add',     label:'Add an item',      hint:'Describe it, I fill the fields', ready:true  },
@@ -198,6 +260,10 @@ const S = {
   confirmDelete:null,
   shared:null,                  // slug whose link was just copied
   newCat:null,                  // the catalogue being created
+  editCat:null,                 // the catalogue being edited, as a draft of its fields
+  confirmCatDelete:false,
+  itemCat:'',                   // the category the item on screen will be saved into
+  itemStatus:'published',       // whether saving it puts it on the site
 };
 
 const $ = s => document.querySelector(s);
@@ -206,7 +272,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c =>
 
 /* Views take a catalogue object; callers pass its slug. */
 function go(v, slug){
-  if (slug !== undefined) S.cat = catalogues().find(c => c.slug === slug) || null;
+  if (slug !== undefined) S.cat = tiles().find(c => c.slug === slug) || null;
   S.view = v; S.error = null; S.shared = null; render();
 }
 
@@ -239,7 +305,7 @@ async function loadItems(){
     const defs = (d.catalogueDefs || []).map(asCatalogue);
     if (defs.length) S.cats = defs;
     // the open catalogue may have been renamed or removed under us
-    if (S.cat) S.cat = catalogues().find(c => c.slug === S.cat.slug) || S.cat;
+    if (S.cat) S.cat = tiles().find(c => c.slug === S.cat.slug) || S.cat;
   } catch (e) {
     S.itemsError = e?.message || 'could not read the catalogue';
     S.items = null;
@@ -355,42 +421,64 @@ async function askForPlan(){
 
 /* ---------- the commit ----------
    One manifest plus any new photos. An edit keeps the item's slug, order and kicker,
-   and keeps its existing photos unless new ones replace them. */
+   and keeps its existing photos unless new ones replace them.
+
+   The category and the on-the-site choice are both explicit, held in S.itemCat and
+   S.itemStatus: nothing is published by the mere act of writing it, and an item that
+   has no category cannot be published at all. Moving an item to another category
+   rewrites its manifest in the new folder and deletes the old one, in one commit. */
 function buildPayload(){
   const f = S.plan.fields;
   const e = S.editing;
-  const slug = e ? e.slug
-    : (f.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const cat = S.itemCat || '';
+  const slug = e ? e.slug : slugify(f.title || 'item');
   const [make, ...rest] = String(f.title || '').trim().split(/\s+/);
   const manifest = {
-    // an edit keeps whatever status the item had, so saving a deactivated item does
-    // not quietly put it back on the site
-    schema: 1, slug, catalogue: S.cat.slug, status: e?.status || 'published',
+    schema: 1, slug, catalogue: cat,
+    status: S.itemStatus === 'published' ? 'published' : 'draft',
     order: e?.order ?? 99,
     make: make || null, model: rest.join(' ') || null,
     subtitle: f.subtitle, year: f.year, price: f.price,
     eyebrow: f.eyebrow,
     kicker: e?.kicker ?? null,
     specs: f.specs.filter(s => s.value),
-    // keep the existing photos when an edit does not replace them
+    // keep the existing photos when an edit does not replace them. Photos already
+    // committed keep their paths -- a change of category moves the manifest, not the
+    // files it points at.
     images: S.photos.length
       ? S.photos.map((p,i) => ({
-          file: `source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`,
+          file: `source-photos/${cat || 'items'}/${slug}/${i+1}.jpg`,
           role: i ? 'secondary' : 'primary',
         }))
       : (e?.images || []),
     ...(e?.background && !S.photos.length ? { background: e.background } : {}),
     audit: { updated_at: new Date().toISOString() },
   };
+  const path = `${TARGET_ENV}/manifests/items/${cat || '<category>'}/${slug}.json`;
   return {
     files: [
-      { path:`${TARGET_ENV}/manifests/items/${S.cat.slug}/${slug}.json`, contents: manifest },
+      { path, contents: manifest },
       ...S.photos.map((p,i) => ({
-        path:`${TARGET_ENV}/source-photos/${S.cat.slug}/${slug}/${i+1}.jpg`, b64:p.b64 })),
+        path:`${TARGET_ENV}/source-photos/${cat || 'items'}/${slug}/${i+1}.jpg`, b64:p.b64 })),
     ],
+    // the old manifest goes in the same commit, so the item is never in two places
+    deletes: (e?._path && e._path !== path) ? [e._path] : [],
     message: `${e ? 'Update' : 'Add'} ${f.year || ''} ${f.title || slug}`.replace(/\s+/g,' ').trim()
              + ` in ${TARGET_ENV}`,
   };
+}
+
+/* The spec slots belong to the category, so choosing a different one re-labels them
+   and keeps whatever values were typed. */
+function pickCategory(slug){
+  S.itemCat = slug || '';
+  const dest = catalogues().find(c => c.slug === S.itemCat);
+  if (dest && S.plan?.fields?.specs){
+    S.plan.fields.specs = dest.specs.map((label, i) => ({
+      label, value: S.plan.fields.specs[i]?.value ?? null,
+    }));
+  }
+  S.error = null; render();
 }
 
 function editItem(slug){
@@ -399,6 +487,10 @@ function editItem(slug){
   if (!it) return;
   S.editing = it;
   S.photos = [];                       // existing photos stay unless replaced
+  // an orphaned item arrives with no category, and must be given one before it can
+  // go back on the site
+  S.itemCat = (it.catalogue && it.catalogue !== ORPHAN_CATALOGUE) ? it.catalogue : '';
+  S.itemStatus = it.status === 'published' ? 'published' : 'draft';
   S.plan = {
     summary: `Update ${it.year || ''} ${it.make || ''} ${it.model || ''}`.replace(/\s+/g,' ').trim(),
     fields: {
@@ -407,10 +499,11 @@ function editItem(slug){
       year: it.year ?? null,
       price: it.price ?? null,
       eyebrow: it.eyebrow ?? null,
-      specs: S.cat.specs.map((label, i) => ({
-        label: it.specs?.[i]?.label || label,
-        value: it.specs?.[i]?.value ?? null,
-      })),
+      specs: (catalogues().find(c => c.slug === S.itemCat)?.specs || S.cat.specs)
+        .map((label, i) => ({
+          label: it.specs?.[i]?.label || label,
+          value: it.specs?.[i]?.value ?? null,
+        })),
     },
   };
   go('plan');
@@ -444,7 +537,10 @@ async function deleteItem(slug){
 /* ---------- deactivate / activate ----------
    The generator only renders an item when its status is "published", so flipping the
    status is all it takes to pull something off the site. Nothing is deleted: the
-   manifest and its photos stay, so activating it again brings the item back as it was. */
+   manifest and its photos stay, so activating it again brings the item back as it was.
+
+   This is the same draft state "Save as a draft" writes at creation -- one way to be
+   off the site, reached from either end. */
 async function setStatus(slug, status){
   const it = (S.items?.[S.cat.slug] || []).find(x => x.slug === slug);
   if (!it) return;
@@ -470,8 +566,8 @@ async function setStatus(slug, status){
 /* ---------- share ----------
    Each published item has its own page on the preview site. Copy rather than open:
    a link you can paste into a message is the thing worth having. */
-async function shareItem(slug){
-  const url = itemUrl(slug);
+async function shareItem(slug, cat){
+  const url = itemUrl(slug, cat);
   if (await copy(url)) {
     S.shared = slug; S.error = null;
     setTimeout(() => { if (S.shared === slug){ S.shared = null; render(); } }, 4000);
@@ -503,30 +599,52 @@ async function copy(text){
 /* ---------- catalogues ----------
    A catalogue is a manifest like any other, so adding one is a commit, not a deploy. */
 function startCatalogue(){
-  S.newCat = { label:'', specs:['','',''], heading:'', lede:'' };
+  S.newCat = { label:'', specs:['','',''], heading:'', lede:'',
+               status:'public', in_menu:true };
   go('newcat');
+}
+
+/* Everything a category manifest holds that the admin lets you set. Shared by create
+   and edit so the two can never drift apart. */
+function catManifest(slug, c, order, existing){
+  return {
+    schema: 1, slug,
+    status: c.status || 'public',
+    // a category can be public but kept out of the site's menu, reachable only by
+    // direct link. build.py reads this as the sitemap flag.
+    in_menu: c.in_menu !== false,
+    label: (c.label || slug).trim(),
+    mark: (c.mark || slug.slice(0,2)).toUpperCase(),
+    order,
+    heading: (c.heading || c.label || slug).trim(),
+    lede: (c.lede || '').trim() || null,
+    spec_slots: c.specs.map(s => ({ label: (s || '').trim() })),
+    audit: { ...(existing?.audit || {}), updated_at: new Date().toISOString() },
+  };
+}
+
+/* The checks create and edit share: a name, three slots, and a slug the site can
+   actually serve from. */
+function catProblem(c, slug, { isNew }){
+  if (!(c.label || '').trim())          return 'Give the category a name.';
+  if (!/^[a-z][a-z0-9-]*$/.test(slug))  return 'That name has no letters I can make a folder from.';
+  if (RESERVED_ROUTES.includes(slug))   return `"${slug}" is a folder the site already uses. Pick another name.`;
+  if (slug === ORPHAN_CATALOGUE)        return `"${slug}" is reserved for items whose category was deleted.`;
+  if (isNew && catalogues().some(x => x.slug === slug)) return `There is already a ${c.label} category.`;
+  if (c.specs.map(s => (s || '').trim()).filter(Boolean).length !== 3)
+    return 'Three spec slots, please — that is what the ad artwork draws.';
+  return null;
 }
 
 async function createCatalogue(){
   const c = S.newCat;
   const label = (c.label || '').trim();
-  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-  if (!label)                        { S.error = 'Give the catalogue a name.'; return render(); }
-  if (!/^[a-z][a-z0-9-]*$/.test(slug)){ S.error = 'That name has no letters I can make a folder from.'; return render(); }
-  if (catalogues().some(x => x.slug === slug)) { S.error = `There is already a ${label} catalogue.`; return render(); }
+  const slug = slugify(label);
+  const problem = catProblem(c, slug, { isNew:true });
+  if (problem) { S.error = problem; return render(); }
 
-  const specs = c.specs.map(s => (s || '').trim()).filter(Boolean);
-  if (specs.length !== 3) { S.error = 'Three spec slots, please — that is what the ad artwork draws.'; return render(); }
-
-  const manifest = {
-    schema: 1, slug, status: 'published',
-    label, mark: slug.slice(0,2).toUpperCase(),
-    order: Math.max(0, ...catalogues().map(x => x.order ?? 0)) + 1,
-    heading: (c.heading || label).trim(),
-    lede: (c.lede || '').trim() || null,
-    spec_slots: specs.map(s => ({ label: s })),
-    audit: { updated_at: new Date().toISOString() },
-  };
+  const order = Math.max(0, ...catalogues().map(x => x.order ?? 0)) + 1;
+  const manifest = catManifest(slug, c, order);
 
   S.publishing = true; S.error = null; render();
   try {
@@ -545,6 +663,95 @@ async function createCatalogue(){
     S.view = 'catalogue';
   } catch (e) {
     S.error = 'Could not create it: ' + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
+}
+
+/* ---------- editing a category ----------
+   Everything but the slug. The slug is the folder every item manifest and photo of
+   this category sits in, so changing it would be a move of the whole category rather
+   than an edit, and this does not pretend otherwise. */
+function startEditCatalogue(){
+  const c = S.cat;
+  S.editCat = {
+    slug: c.slug, label: c.label, mark: c.mark, heading: c.heading, lede: c.lede,
+    specs: [...c.specs], status: c.status, in_menu: c.in_menu,
+    order: c.order, _path: c._path,
+  };
+  S.confirmCatDelete = false;
+  go('editcat');
+}
+
+async function saveCatalogue(){
+  const c = S.editCat;
+  const problem = catProblem(c, c.slug, { isNew:false });
+  if (problem) { S.error = problem; return render(); }
+
+  const existing = (S.cats || []).find(x => x.slug === c.slug);
+  const manifest = catManifest(c.slug, c, c.order ?? 99, existing);
+  const path = c._path || `${TARGET_ENV}/manifests/catalogues/${c.slug}.json`;
+
+  S.publishing = true; S.error = null; render();
+  try {
+    await write({
+      message: `Update the ${manifest.label} catalogue in ${TARGET_ENV}`,
+      files: [{ path, contentsBase64: b64(JSON.stringify(manifest, null, 2)) }],
+    });
+    S.cat = asCatalogue({ ...manifest, _path: path });
+    S.editCat = null;
+    await loadItems();
+    S.view = 'catalogue';
+  } catch (e) {
+    S.error = 'Could not save it: ' + (e?.message || 'unknown error');
+  }
+  S.publishing = false; render();
+}
+
+/* ---------- deleting a category ----------
+   Its items are not destroyed. Each one is rewritten into the orphan pen -- its
+   catalogue field changed, its status dropped to draft, where it came from recorded --
+   and its old manifest deleted, all in the one commit that removes the category. So
+   the repository is never half-updated: either the category is gone and its items are
+   waiting to be reassigned, or nothing happened. */
+async function deleteCatalogue(){
+  const c = S.editCat || S.cat;
+  const held = (S.items?.[c.slug] || []);
+  const path = c._path || `${TARGET_ENV}/manifests/catalogues/${c.slug}.json`;
+
+  const files = [];
+  const deletes = [path];
+  for (const it of held){
+    const { _path, _catalogue, _broken, ...m } = it;
+    m.catalogue = ORPHAN_CATALOGUE;
+    m.status = 'draft';                       // nothing in the pen is on the site
+    m.audit = { ...(m.audit || {}), updated_at: new Date().toISOString(),
+                orphaned_from: c.slug };
+    files.push({
+      path: `${TARGET_ENV}/manifests/items/${ORPHAN_CATALOGUE}/${m.slug}.json`,
+      contentsBase64: b64(JSON.stringify(m, null, 2)),
+    });
+    if (_path) deletes.push(_path);
+  }
+  if (files.length > 39){
+    S.error = `${c.label} holds ${files.length} items — too many to move in one commit. `
+            + 'Reassign some of them first.';
+    return render();
+  }
+
+  S.publishing = true; S.error = null; render();
+  try {
+    await write({
+      message: held.length
+        ? `Delete the ${c.label} catalogue from ${TARGET_ENV}, keeping its `
+          + `${held.length} item${held.length===1?'':'s'}`
+        : `Delete the empty ${c.label} catalogue from ${TARGET_ENV}`,
+      files, deletes,
+    });
+    S.editCat = null; S.confirmCatDelete = false; S.cat = null;
+    await loadItems();
+    S.view = 'workspace';
+  } catch (e) {
+    S.error = 'Could not delete it: ' + (e?.message || 'unknown error');
   }
   S.publishing = false; render();
 }
@@ -586,11 +793,11 @@ async function publish(){
     const res = await fetch('/write', {
       method:'POST',
       headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ message: p.message, files }),
+      body: JSON.stringify({ message: p.message, files, deletes: p.deletes || [] }),
     });
     const out = await res.json().catch(() => ({}));
     if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
-    S.published = { commit: out.commit, at: new Date().toISOString() };
+    S.published = { commit: out.commit, at: new Date().toISOString(), catalogue: S.itemCat };
     loadItems();
   } catch (e) {
     S.error = 'Publish failed: ' + (e?.message || 'unknown error');
@@ -633,21 +840,27 @@ function vWorkspace(){
     <p class="lede">Pick an area, describe the change in plain English, and I'll show you
       exactly what I plan to do before anything is written.</p>
     <div class="grid">
-      ${catalogues().map(c => {
+      ${tiles().map(c => {
         const n = S.items ? (S.items[c.slug]?.length || 0) : undefined;
-        const sub = S.loadingItems ? 'loading…'
+        const sub = c._orphan
+                  ? `${n} item${n===1?'':'s'} left without a category`
+                  : S.loadingItems ? 'loading…'
                   : n === undefined ? `Slots: ${esc(c.specs.join(' · '))}`
                   : `${n} item${n===1?'':'s'} · ${esc(c.specs.join(' · '))}`;
+        // the state is only worth saying when it is not the ordinary one
+        const st = c._orphan ? '<span class="st">off the site</span>'
+                 : onSite(c) ? (c.in_menu ? '' : '<span class="st">not in the menu</span>')
+                 : `<span class="st">${esc(catState(c.status)[1])}</span>`;
         return `
         <button class="tile" onclick="go('catalogue','${esc(c.slug)}')">
           <div class="mk">${esc(c.mark)}</div>
-          <h2>${esc(c.label)}</h2>
+          <h2>${esc(c.label)}${st}</h2>
           <p>${sub}</p>
           <div class="go">Open &rarr;</div>
         </button>`;}).join('')}
       <button class="tile" onclick="startCatalogue()" style="border-style:dashed">
         <div class="mk" style="background:transparent;border:1px dashed var(--line);color:var(--dim)">+</div>
-        <h2>New catalogue</h2>
+        <h2>New category</h2>
         <p>Tyres, detailing, winter storage &mdash; whatever you sell next</p>
         <div class="go">Create &rarr;</div>
       </button>
@@ -657,6 +870,7 @@ function vWorkspace(){
 
 function vCatalogue(){
   const list = S.items?.[S.cat.slug] || [];
+  const pen = !!S.cat._orphan;
   const rows = !S.items ? `<div class="card-b dim">${esc(S.itemsError || 'Loading…')}</div>`
     : !list.length ? '<div class="card-b dim">Nothing here yet.</div>'
     : list.map(it => {
@@ -665,9 +879,10 @@ function vCatalogue(){
         const live = it.status === 'published';
         const tags = [
           !it.images?.length ? '<span class="tag">no photo</span>' : '',
-          live ? '' : '<span class="tag">deactivated</span>',
+          live ? '' : '<span class="tag">off the site</span>',
         ].join(' ');
         const s = esc(it.slug);
+        const cs = esc(it.catalogue || S.cat.slug);
         return `<div class="row">
           <div class="pick" style="flex:1;min-width:0" onclick="editItem('${s}')"
                title="Open ${esc(name)}">
@@ -683,22 +898,42 @@ function vCatalogue(){
                </button>`
             : `${S.shared === it.slug
                  ? '<span class="chip ok" style="white-space:nowrap">Link copied</span>'
-                 : `<button class="btn ghost" onclick="shareItem('${s}')"
-                            ${live?'':'title="Deactivated items have no page on the site yet"'}>Share</button>`}
-               <button class="btn ghost" onclick="setStatus('${s}','${live?'draft':'published'}')"
+                 : `<button class="btn ghost" onclick="shareItem('${s}','${cs}')" ${pen?'disabled':''}
+                            title="${pen ? 'It belongs to no category, so it has no page'
+                                         : (live ? 'Copy its link'
+                                            : 'Items that are off the site have no page yet')}"
+                            >Share</button>`}
+               ${pen
+                 ? `<button class="btn ghost" onclick="editItem('${s}')"
+                            title="Give it a category, then publish it">Give it a category</button>`
+                 : `<button class="btn ghost" onclick="setStatus('${s}','${live?'draft':'published'}')"
                        ${S.publishing || (!live && !it.images?.length) ? 'disabled' : ''}
                        title="${live ? 'Take it off the site, keep it here'
                                      : (it.images?.length ? 'Put it back on the site'
                                         : 'Add a photo first — a published item needs one')}"
-                       >${live ? 'Deactivate' : 'Activate'}</button>
+                       >${live ? 'Deactivate' : 'Activate'}</button>`}
                <button class="btn ghost" onclick="S.confirmDelete='${s}';render()">Delete</button>`}
         </div>`;
       }).join('');
+  const state = pen ? ''
+    : `<div class="dim" style="font-size:12.5px;margin-top:10px">
+         ${esc(catState(S.cat.status)[1])} &middot;
+         ${onSite(S.cat)
+            ? (S.cat.in_menu ? 'listed in the site menu'
+                             : 'reachable by direct link only, not in the menu')
+            : 'nothing of it is on the site'}
+         &middot; <a href="${esc(categoryUrl(S.cat.slug))}" target="_blank" rel="noopener"
+                     style="color:var(--acc)">its page</a>
+       </div>`;
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / ${esc(S.cat.label)}</div>
     <h1>${esc(S.cat.label)}</h1>
-    <p class="lede">What is on the preview site now. Press an item to open it. Deactivating
-      takes it off the site but keeps it here; deleting removes it for good.</p>
+    <p class="lede">${pen
+      ? `These items lost their category when it was deleted. Nothing was thrown away &mdash;
+         give each one a category and publish it to put it back on the site.`
+      : `What is on the preview site now. Press an item to open it. Deactivating
+         takes it off the site but keeps it here; deleting removes it for good.`}</p>
+    ${state}
 
     ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
@@ -709,13 +944,26 @@ function vCatalogue(){
       ${rows}
     </div>
 
-    <div style="display:flex;gap:9px;margin-top:18px">
-      <button class="btn" onclick="S.editing=null;S.plan=null;S.text='';S.photos=[];go('task')">
-        Add ${esc(S.cat.label.replace(/s$/,'').toLowerCase())}
+    <div style="display:flex;gap:9px;margin-top:18px;flex-wrap:wrap">
+      ${pen ? '' : `<button class="btn"
+        onclick="S.editing=null;S.plan=null;S.text='';S.photos=[];S.itemCat='${esc(S.cat.slug)}';S.itemStatus='published';go('task')">
+        Add ${esc(singular(S.cat.label))}
       </button>
+      <button class="btn ghost" onclick="startEditCatalogue()">Category settings</button>`}
       <button class="btn ghost" onclick="go('workspace')">Back</button>
     </div>`;
 }
+
+const singular = label => {
+  const s = String(label || '').trim().toLowerCase();
+  return s.endsWith('s') && s.length > 2 ? s.slice(0, -1) : s;
+};
+
+/* A category's own board on the site. The default category is the environment root;
+   anything else lives in its own folder. Mirrors build.py's catalogue_route(). */
+const categoryUrl = slug => slug === DEFAULT_CATALOGUE
+  ? `${SITE}/${TARGET_ENV}/`
+  : `${SITE}/${TARGET_ENV}/${encodeURIComponent(slug)}/`;
 
 /* Updated in place rather than by re-rendering: a full render on every keystroke
    would take the cursor out of the field. */
@@ -728,15 +976,41 @@ function showSlug(){
                       : 'The folder name comes from this.';
 }
 
+/* The state picker and the menu toggle, shared by the create and edit forms so the
+   two always offer the same choices. `bag` names the state object to write into. */
+function catStateControls(c, bag){
+  return `
+    <div class="card-b" style="border-top:1px solid var(--line)">
+      <label class="lab">State</label>
+      <div class="acts">
+        ${CAT_STATES.map(([id, label, hint]) => `
+          <button class="act ${(c.status||'public')===id?'sel':''}"
+                  onclick="${bag}.status='${id}';render()">
+            <div>${esc(label)}<small>${esc(hint)}</small></div>
+          </button>`).join('')}
+      </div>
+      <label class="toggle" style="margin-top:14px">
+        <input type="checkbox" ${c.in_menu!==false?'checked':''}
+               onchange="${bag}.in_menu=this.checked;render()">
+        Show it in the site&rsquo;s menu
+      </label>
+      <p class="dim" style="font-size:12.5px;margin:8px 0 0">
+        The menu only appears once a second category is on the site with at least one
+        published item. Turn this off to keep a category reachable by direct link
+        without listing it.
+      </p>
+    </div>`;
+}
+
 function vNewCat(){
   const c = S.newCat || {};
   const slug = (c.label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   return `
-    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / New catalogue</div>
-    <h1>New catalogue</h1>
-    <p class="lede">A catalogue is a group of things you sell &mdash; vehicles, tyres, a service.
-      Each one gets its own tile here and its own three spec slots, which is what the ad
-      artwork draws for every item in it.</p>
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / New category</div>
+    <h1>New category</h1>
+    <p class="lede">A category is a group of things you sell &mdash; vehicles, tyres, a service.
+      Each one gets its own tile here, its own page on the site, and its own three spec
+      slots, which is what the ad artwork draws for every item in it.</p>
 
     ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
@@ -775,17 +1049,109 @@ function vNewCat(){
                    oninput="S.newCat.specs[${i}]=this.value">
           </div>`).join('')}
         <p class="dim" style="font-size:12.5px;margin:12px 0 0">
-          Three labels, the same for every item in this catalogue. Vehicles use
+          Three labels, the same for every item in this category. Vehicles use
           KM &middot; Engine &middot; Drivetrain.
         </p>
       </div>
+      ${catStateControls(c, 'S.newCat')}
     </div>
 
     <div style="display:flex;gap:9px">
       <button class="btn" onclick="createCatalogue()" ${S.publishing?'disabled':''}>
-        ${S.publishing ? '<span class="spin"></span> Creating' : 'Create the catalogue'}
+        ${S.publishing ? '<span class="spin"></span> Creating' : 'Create the category'}
       </button>
       <button class="btn ghost" onclick="S.newCat=null;go('workspace')">Cancel</button>
+    </div>`;
+}
+
+function vEditCat(){
+  const c = S.editCat || {};
+  const held = (S.items?.[c.slug] || []).length;
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> /
+      <b onclick="go('catalogue','${esc(c.slug)}')">${esc(c.label)}</b> / Settings</div>
+    <h1>${esc(c.label)} settings</h1>
+    <p class="lede">Everything but the folder name. <code>${esc(c.slug)}</code> is where
+      this category&rsquo;s items and photos live in the repository, so it stays put.</p>
+
+    ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div class="card" style="margin-top:22px;max-width:620px">
+      <div class="card-h">The category</div>
+      <div class="card-b">
+        <div class="fld">
+          <label class="lab">Name</label>
+          <input class="in" value="${esc(c.label)}" oninput="S.editCat.label=this.value">
+        </div>
+        <div class="fld">
+          <label class="lab">Heading</label>
+          <input class="in" value="${esc(c.heading)}" placeholder="shown above the list on the site"
+                 oninput="S.editCat.heading=this.value">
+        </div>
+        <div class="fld">
+          <label class="lab">Blurb</label>
+          <input class="in" value="${esc(c.lede)}" placeholder="one line, optional"
+                 oninput="S.editCat.lede=this.value">
+        </div>
+        <div class="fld">
+          <label class="lab">Order</label>
+          <input class="in" type="number" value="${esc(c.order ?? 99)}"
+                 oninput="S.editCat.order=Number(this.value)||0">
+        </div>
+        <p class="dim" style="font-size:12.5px;margin:0">
+          The heading and blurb are what the site prints at the top of this
+          category&rsquo;s page. Order sets where it sits in the menu.
+        </p>
+      </div>
+      ${catStateControls(c, 'S.editCat')}
+    </div>
+
+    <div class="card" style="max-width:620px">
+      <div class="card-h">Spec slots</div>
+      <div class="card-b">
+        ${[0,1,2].map(i => `
+          <div class="fld">
+            <label class="lab">Slot ${i+1}</label>
+            <input class="in ${c.specs?.[i]?'':'missing'}" value="${esc(c.specs?.[i])}"
+                   oninput="S.editCat.specs[${i}]=this.value">
+          </div>`).join('')}
+        <p class="dim" style="font-size:12.5px;margin:12px 0 0">
+          Renaming a slot changes the label the ads draw. Values already saved on each
+          item stay where they are.
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:620px">
+      <div class="card-h">Delete this category</div>
+      <div class="card-b">
+        <p class="dim" style="margin:0 0 13px">
+          ${held
+            ? `Its ${held} item${held===1?'':'s'} ${held===1?'is':'are'} not thrown away.
+               ${held===1?'It is':'They are'} moved to <strong>Needs a category</strong>,
+               taken off the site, and wait${held===1?'s':''} there until you give
+               ${held===1?'it':'them'} a category again.`
+            : 'It holds nothing, so only its own manifest goes.'}
+        </p>
+        ${S.confirmCatDelete
+          ? `<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+               <span class="dim" style="font-size:12.5px">Delete ${esc(c.label)}?</span>
+               <button class="btn ghost" onclick="S.confirmCatDelete=false;render()">Cancel</button>
+               <button class="btn" style="background:#f5a623" onclick="deleteCatalogue()"
+                       ${S.publishing?'disabled':''}>
+                 ${S.publishing ? '<span class="spin"></span> Deleting' : 'Really delete it'}
+               </button>
+             </div>`
+          : `<button class="btn ghost" onclick="S.confirmCatDelete=true;render()">
+               Delete ${esc(c.label)}</button>`}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn" onclick="saveCatalogue()" ${S.publishing?'disabled':''}>
+        ${S.publishing ? '<span class="spin"></span> Saving' : 'Save the category'}
+      </button>
+      <button class="btn ghost" onclick="S.editCat=null;go('catalogue','${esc(c.slug)}')">Cancel</button>
     </div>`;
 }
 
@@ -890,6 +1256,34 @@ function vPlan(){
     </p>
 
     <div class="card">
+      <div class="card-h">Where it goes</div>
+      <div class="card-b">
+        <div class="fld">
+          <label class="lab">Category</label>
+          <select class="in ${S.itemCat?'':'missing'}" onchange="pickCategory(this.value)">
+            <option value="">&mdash; choose one &mdash;</option>
+            ${catalogues().map(c => `<option value="${esc(c.slug)}"
+                ${c.slug===S.itemCat?'selected':''}>${esc(c.label)}</option>`).join('')}
+          </select>
+          ${S.itemCat?'':'<span class="tag">needs you</span>'}
+        </div>
+        <p class="dim" style="font-size:12.5px;margin:0 0 15px">
+          ${S.itemCat
+            ? 'The spec slots below are this category&rsquo;s.'
+            : 'An item has to belong to a category before it can go on the site.'}
+        </p>
+        <label class="lab">When you publish</label>
+        <div class="acts">
+          ${ITEM_STATES.map(([id, label, hint]) => `
+            <button class="act ${S.itemStatus===id?'sel':''}"
+                    onclick="S.itemStatus='${id}';render()">
+              <div>${esc(label)}<small>${esc(hint)}</small></div>
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-h">Fields</div>
       <div class="card-b">
         ${row('title','Title',f.title)}
@@ -929,45 +1323,59 @@ function vResult(){
       <div class="card" style="max-width:580px;margin-top:20px">
         <div class="card-b" style="text-align:center;padding:32px">
           <div style="font-size:42px;color:var(--acc);line-height:1">&#10003;</div>
-          <h1 style="font-size:24px;margin:12px 0 8px">It's live</h1>
+          <h1 style="font-size:24px;margin:12px 0 8px">${S.itemStatus === 'published' ? "It's live" : 'Saved'}</h1>
           <p class="dim" style="margin:0 0 6px">Commit
             <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>,
             on the <strong>preview</strong> site. Rebuilds in about a minute.</p>
           <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
             <a class="btn" target="_blank" rel="noopener"
-               href="${itemUrl(p.files[0].contents.slug)}">View this item</a>
-            <button class="btn ghost" onclick="shareItem('${esc(p.files[0].contents.slug)}')">
+               href="${itemUrl(p.files[0].contents.slug, S.published.catalogue)}">View this item</a>
+            <button class="btn ghost"
+                    onclick="shareItem('${esc(p.files[0].contents.slug)}','${esc(S.published.catalogue || '')}')">
               ${S.shared ? 'Link copied' : 'Copy its link'}
             </button>
-            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];S.editing=null;S.shared=null;go('workspace')">
+            <button class="btn ghost" onclick="S.plan=null;S.published=null;S.text='';S.photos=[];S.editing=null;S.shared=null;S.itemCat='';S.itemStatus='published';go('workspace')">
               Make another change
             </button>
           </div>
         </div>
       </div>`;
   }
+  const dest = catalogues().find(c => c.slug === S.itemCat);
+  const noPhoto = !(S.photos.length || S.editing?.images?.length);
+  const draft = p.files[0].contents.status !== 'published';
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Ready to publish</div>
     <h1>Ready to publish</h1>
     <p class="lede">Your draft is saved. This is exactly what will be committed.</p>
 
-    ${p.files[0].contents.status === 'published' ? '' : `<div class="note" style="margin-top:20px">
-      <b>This item is deactivated.</b> Saving keeps it that way &mdash; it stays here but
-      off the site. Activate it from the ${esc(S.cat.label)} list when you want it back.
+    ${dest ? '' : `<div class="note" style="margin-top:20px">
+      <b>No category chosen.</b> Pick one on the previous screen &mdash; an item has to
+      belong to a category before it can be written.
     </div>`}
 
-    ${(S.photos.length || S.editing?.images?.length) ? '' : `<div class="note" style="margin-top:20px">
+    ${draft ? `<div class="note" style="margin-top:20px">
+      <b>Saving this as a draft.</b> It is written to the repository but stays off the
+      site${dest ? `. Activate it from the ${esc(dest.label)} list when you want it live` : ''}.
+    </div>` : ''}
+
+    ${noPhoto ? `<div class="note" style="margin-top:20px">
       <b>This item has no photo.</b> A published item needs at least one &mdash; the ad
       is built from it, so without a photo there is nothing to show. Go back and add one.
-    </div>`}
+    </div>` : ''}
 
     <div class="card" style="margin-top:20px">
-      <div class="card-h">Files to write</div>
+      <div class="card-h">The commit</div>
       <div class="card-b">
         ${p.files.map(f => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
           padding:5px 0;border-bottom:1px solid var(--line)">
           <span style="color:var(--acc)">+</span> ${esc(f.path)}
           ${f.b64!==undefined?'<span class="dim"> (photo)</span>':''}
+        </div>`).join('')}
+        ${(p.deletes || []).map(d => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+          padding:5px 0;border-bottom:1px solid var(--line)">
+          <span style="color:var(--warn)">&minus;</span> ${esc(d)}
+          <span class="dim"> (moved, not lost)</span>
         </div>`).join('')}
       </div>
     </div>
@@ -980,8 +1388,10 @@ function vResult(){
     ${S.error ? `<div class="note"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
 
     <div style="display:flex;gap:9px;flex-wrap:wrap">
-      <button class="btn" onclick="publish()" ${S.publishing||(!S.photos.length && !S.editing?.images?.length)?'disabled':''}>
-        ${S.publishing ? '<span class="spin"></span> Publishing' : 'Publish to the preview site'}
+      <button class="btn" onclick="publish()"
+              ${S.publishing || !dest || (noPhoto && !draft) ? 'disabled' : ''}>
+        ${S.publishing ? '<span class="spin"></span> Publishing'
+          : draft ? 'Save the draft' : 'Publish to the preview site'}
       </button>
       <button class="btn ghost" onclick="downloadPayload()">Save the payload</button>
       <button class="btn ghost" onclick="S.plan=null;S.text='';S.photos=[];S.editing=null;go('workspace')">
@@ -994,9 +1404,11 @@ function render(){
   if (!S.ready){ $('#view').innerHTML = '<p class="dim" style="padding:40px 0">Starting…</p>'; return; }
   // these views all read S.cat; a catalogue that has gone away must not take the app down
   if (!S.cat && ['catalogue','task','plan','result'].includes(S.view)) S.view = 'workspace';
+  if (!S.editCat && S.view === 'editcat') S.view = 'workspace';
   const v = S.view==='workspace' ? vWorkspace()
           : S.view==='catalogue' ? vCatalogue()
           : S.view==='newcat'    ? vNewCat()
+          : S.view==='editcat'   ? vEditCat()
           : S.view==='me'        ? vMe()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()

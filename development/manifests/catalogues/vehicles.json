@@ -1,12 +1,13 @@
 {
   "schema": 1,
   "slug": "vehicles",
-  "status": "published",
+  "status": "public",
+  "in_menu": true,
   "label": "Vehicles",
   "mark": "VE",
   "order": 1,
   "heading": "The Lineup",
-  "lede": "Pre-owned vehicles for Ottawa drivers, priced to move.",
+  "lede": "Pre-owned vehicles for Ottawa drivers, priced to move. Each listing shows the year, mileage, engine and price up front. Get in touch to ask about a vehicle or to arrange a viewing.",
   "spec_slots": [
     {
       "label": "KM"

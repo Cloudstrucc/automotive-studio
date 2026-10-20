@@ -25,18 +25,52 @@ def _uri(path):
     with open(path, "rb") as fh:
         return "data:image/jpeg;base64," + base64.b64encode(fh.read()).decode("ascii")
 
+# Items whose category was deleted are parked here by the admin. They are kept so the
+# deletion can be undone, but they belong to nothing, so no ad is drawn for them.
+# Must stay in step with build.py's ORPHAN_CATALOGUE.
+ORPHAN_CATALOGUE = "orphan"
+# Categories that are on the site. "published" is the pre-migration spelling.
+PUBLIC_STATUS = {"public", "published"}
+
+def public_catalogues(env):
+    """The category slugs that are on the site, from <env>/manifests/catalogues/.
+
+    Returns None when an environment has no catalogue manifests at all, meaning
+    "render everything" — that is how this behaved before categories had states."""
+    folder = os.path.join(REPO, env, "manifests", "catalogues")
+    if not os.path.isdir(folder):
+        return None
+    ok = set()
+    seen = False
+    for fn in sorted(os.listdir(folder)):
+        if not fn.endswith(".json"):
+            continue
+        seen = True
+        with open(os.path.join(folder, fn), encoding="utf-8") as fh:
+            m = json.load(fh)
+        if str(m.get("status") or "public") in PUBLIC_STATUS:
+            ok.add(m.get("slug") or os.path.splitext(fn)[0])
+    return ok if seen else None
+
 def load_items(env):
-    """Every published item in an environment, in display order.
+    """Every published item in an environment that is on the site, in display order.
 
     The manifest is the source of truth: the file the admin writes is the file this
-    renders, so a vehicle added through the admin needs no code change to appear."""
+    renders, so a vehicle added through the admin needs no code change to appear.
+    An item is skipped when it is not published, has no photo, is orphaned, or its
+    category is not public — the same three gates build.py applies, so the ads on
+    disk are exactly the ads the site links to."""
     folder = os.path.join(REPO, env, "manifests", "items")
     if not os.path.isdir(folder):
         raise SystemExit(f"no manifests in {env}/: expected {folder}")
+    public = public_catalogues(env)
     items = []
     for catalogue in sorted(os.listdir(folder)):
         d = os.path.join(folder, catalogue)
         if not os.path.isdir(d):
+            continue
+        if catalogue == ORPHAN_CATALOGUE:
+            print(f"  · skipping {catalogue}/: items waiting to be given a category")
             continue
         for fn in sorted(os.listdir(d)):
             if not fn.endswith(".json"):
@@ -44,6 +78,12 @@ def load_items(env):
             with open(os.path.join(d, fn), encoding="utf-8") as fh:
                 m = json.load(fh)
             if m.get("status") != "published":
+                continue
+            cat = m.get("catalogue") or catalogue
+            if cat == ORPHAN_CATALOGUE:
+                continue
+            if public is not None and cat not in public:
+                print(f"  · skipping {catalogue}/{fn}: the {cat} category is not public")
                 continue
             if not m.get("images"):
                 print(f"  ! skipping {catalogue}/{fn}: no image")

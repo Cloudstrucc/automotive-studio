@@ -17,7 +17,7 @@
 import PAGE from './workspace.html';
 
 const UA = 'autoline-admin';
-const MAX_FILES = 12;
+const MAX_FILES = 40;   // a catalogue deletion rewrites every item it held, in one commit
 const MAX_BYTES = 8 * 1024 * 1024;
 const MODEL = 'claude-sonnet-5-5';
 
@@ -305,24 +305,51 @@ async function handleWrite(request, env) {
   }
 }
 
-const ITEM_MANIFEST = /(?:^|\/)manifests\/items\/[^/]+\/[^/]+\.json$/;
+const ITEM_MANIFEST = /(?:^|\/)manifests\/items\/([^/]+)\/[^/]+\.json$/;
+// Items whose catalogue was deleted are parked here. Kept so a deletion can be undone,
+// but they belong to nothing, so nothing in orphan may be published. Must stay in step
+// with build.py's ORPHAN_CATALOGUE and gen_velocity.py's.
+const ORPHAN_CATALOGUE = 'orphan';
 
 /**
- * Returns a message when the payload would publish an item without a usable image,
- * or null when everything checks out. An image counts if it arrives in this payload
- * or already exists in the repository.
+ * Returns a message when the payload would publish an item that cannot render, or
+ * null when everything checks out. Two things are checked, both because the ad
+ * artwork is built from the manifest and an item that fails either would reach the
+ * site as an empty frame or an unreachable page:
+ *
+ *   - a published item has at least one image, in this payload or already committed;
+ *   - a published item names a real category, and the one its file is being written
+ *     into. Nothing may be published into the orphan pen.
+ *
+ * Enforced here rather than only in the page, because the page is not the only
+ * possible caller.
  */
 async function checkPublishedItems(env, files) {
   const incoming = new Set(files.map(f => f.path));
 
   for (const f of files) {
-    if (!ITEM_MANIFEST.test(f.path)) continue;
+    const m = ITEM_MANIFEST.exec(f.path);
+    if (!m) continue;
+    const folder = m[1];
 
     let item;
     try { item = JSON.parse(b64decode(f.contentsBase64)); }
     catch { return `${f.path} is not valid JSON`; }
 
     if (item?.status !== 'published') continue;
+
+    const cat = typeof item.catalogue === 'string' ? item.catalogue.trim() : '';
+    if (!cat) {
+      return `${item.slug || f.path} has no category. Choose one before publishing it.`;
+    }
+    if (cat === ORPHAN_CATALOGUE || folder === ORPHAN_CATALOGUE) {
+      return `${item.slug || f.path} has no category of its own yet. `
+           + `Give it one before publishing it.`;
+    }
+    if (cat !== folder) {
+      return `${item.slug || f.path} says it is in "${cat}" but is being written into `
+           + `"${folder}". Those have to match.`;
+    }
 
     const images = Array.isArray(item.images) ? item.images : [];
     if (!images.length) {
