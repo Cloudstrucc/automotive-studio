@@ -47,16 +47,14 @@ fi
 
 # Each environment is rendered from its own manifests, since they can differ --
 # that is the whole point of publishing to development/ before production/.
+# sync_ads.py renders and copies only the ads whose generated SVG differs from the
+# one already committed, so an untouched ad keeps its exact JPG and the diff stays
+# down to what really changed. It is the same pair of commands CI runs.
 for env in "$@"; do
   echo "==> $env: generating svg"
   "$PY" gen_velocity.py "$env"
-  echo "==> $env: rendering jpg"
-  "$PY" render_jpgs.py
-  dest="../$env/ads"
-  rm -f "$dest"/jpg/*.jpg "$dest"/svg/*.svg
-  cp output/jpg/*.jpg "$dest/jpg/"
-  cp output/svg/*.svg "$dest/svg/"
-  echo "==> copied into $env/"
+  echo "==> $env: rendering what changed"
+  "$PY" sync_ads.py "$env"
 done
 
 echo

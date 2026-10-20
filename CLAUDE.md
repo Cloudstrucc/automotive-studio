@@ -85,8 +85,9 @@ and each vehicle page. Phone/email live as constants in `build.py` and `tools/ge
 - **Remove a sold vehicle:** delete its files from `ads/jpg/` (and `ads/svg/`), commit & push.
 - **Promote:** copy a vehicle's files from `development/` → `review/` → `production/`.
 - **Change what's printed on an ad** (price, km, contact): use `tools/` — see `tools/README.md`.
-  Edit `tools/gen_velocity.py` `CARS`, run `gen_velocity.py` then `render_jpgs.py`, copy outputs into
-  the env folder.
+  Edit the item's manifest (or `PHONE`/`EMAIL` in `tools/gen_velocity.py`) and run
+  `./tools/regen.sh <env>…`. Only the ads whose generated SVG actually changed are re-rendered
+  and copied, so an untouched ad keeps its committed JPG byte-for-byte.
 
 ## Design direction (Velocity)
 - Dark stage, electric-green accent `#19e36a`; condensed display face **Archivo**, body **Inter**.

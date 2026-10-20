@@ -72,16 +72,17 @@ jobs:
           pip install --disable-pip-version-check -q -r tools/requirements.txt
           python -m playwright install chromium
 
-      - name: Re-render the ads
+      # The same two commands tools/regen.sh runs. regen.sh itself is not used here
+      # because it builds its own venv and pip-installs, which the cached steps above
+      # have already done -- but the part that used to be worth duplicating, deciding
+      # what to render and copy, now lives only in sync_ads.py.
+      - name: Re-render the ads that changed
         if: steps.envs.outputs.list != ''
         run: |
           for env in ${{ steps.envs.outputs.list }}; do
             echo "::group::$env"
             python tools/gen_velocity.py "$env"
-            python tools/render_jpgs.py
-            rm -f "$env"/ads/jpg/*.jpg "$env"/ads/svg/*.svg
-            cp tools/output/jpg/*.jpg "$env/ads/jpg/"
-            cp tools/output/svg/*.svg "$env/ads/svg/"
+            python tools/sync_ads.py "$env"
             echo "::endgroup::"
           done
 
