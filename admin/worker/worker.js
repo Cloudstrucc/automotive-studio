@@ -60,6 +60,8 @@ export default {
     if (url.pathname === '/api/items')  return handleItems(request, env);
     if (url.pathname === '/api/plan')   return handlePlan(request, env);
     if (url.pathname === '/write')      return handleWrite(request, env);
+    if (url.pathname === '/api/promote') return handlePromote(request, env);
+    if (url.pathname === '/api/build')   return handleBuild(request, env);
     return json({ error: 'not found' }, 404);
   },
 };
@@ -98,7 +100,15 @@ async function handleItems(request, env) {
   try {
     tree = await gh(env, `https://api.github.com/repos/${env.REPO}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
   } catch (e) {
-    return json({ error: `could not read the repository: ${e.message || e}` }, 502);
+    return json(readFailure(env, e), 502);
+  }
+  // The tree API truncates very large repositories. Saying so is better than
+  // quietly listing a subset and letting someone think an item was deleted.
+  if (tree.truncated) {
+    return json({
+      error: 'the repository listing came back truncated, so this would not be the '
+           + 'whole catalogue. Nothing has been changed.',
+    }, 502);
   }
 
   const prefix = `${which}/manifests/items/`;
@@ -246,6 +256,167 @@ function normalisePlan(p, slots) {
 }
 
 /* ---------- POST /write ---------- */
+/* Turns a GitHub failure into something the admin can act on. The common one by far
+   is an expired token, which otherwise reads as a generic 502 and sends people
+   looking at their manifests instead of at their credentials. */
+function readFailure(env, e) {
+  const msg = String(e?.message || e);
+  if (/GitHub 40[13]/.test(msg)) {
+    return {
+      error: 'GitHub refused the request, which almost always means the admin\'s '
+           + 'access token has expired or been revoked. The products are safe — '
+           + 'this is the admin failing to read them, not the repository losing them.',
+      remedy: 'Issue a new fine-grained token with Contents: read and write on '
+            + `${env.REPO || 'the repository'}, then run: wrangler secret put GITHUB_TOKEN`,
+      detail: msg,
+    };
+  }
+  if (/GitHub 404/.test(msg)) {
+    return {
+      error: `GitHub cannot find ${env.REPO || 'the repository'}, or the token has no `
+           + 'access to it.',
+      remedy: 'Check REPO in wrangler.toml and that the token grants this repository.',
+      detail: msg,
+    };
+  }
+  return { error: `Could not read the repository: ${msg}`, detail: msg };
+}
+
+const ENV_NAMES = new Set(['production', 'review', 'development']);
+const SAFE_SLUG = /^[a-z0-9][a-z0-9-]*$/;
+
+/* ---------- POST /api/promote ----------
+   Copies items from one environment to another: their manifests, their source photos
+   and, where the target does not have it yet, the catalogue manifest they belong to.
+
+   Nothing is uploaded. Every path copied already exists in the repository, so the new
+   tree points at the same blobs — promoting a vehicle with four photos moves no bytes
+   and takes one round trip rather than five.
+
+   Rendered ads are deliberately NOT copied. CI re-renders the target from the manifests
+   it just received, which is what keeps an environment internally consistent: its ads
+   are always built from its own inputs rather than inherited from somewhere else. */
+async function handlePromote(request, env) {
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: 'body must be JSON' }, 400); }
+
+  const from = String(body.from || '');
+  const to = String(body.to || '');
+  if (!ENV_NAMES.has(from)) return json({ error: `unknown source environment: ${from}` }, 400);
+  if (!ENV_NAMES.has(to))   return json({ error: `unknown target environment: ${to}` }, 400);
+  if (from === to)          return json({ error: 'source and target are the same' }, 400);
+
+  const slugs = Array.isArray(body.slugs) ? body.slugs.map(String) : null;
+  if (slugs && !slugs.every(s => SAFE_SLUG.test(s))) {
+    return json({ error: 'a slug contains characters that are not allowed' }, 400);
+  }
+  if (slugs && !slugs.length) return json({ error: 'nothing selected to promote' }, 400);
+
+  const branch = env.BRANCH || 'main';
+  let tree;
+  try {
+    tree = await gh(env, `https://api.github.com/repos/${env.REPO}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+  } catch (e) {
+    return json(readFailure(env, e), 502);
+  }
+  if (tree.truncated) return json({ error: 'the repository listing came back truncated' }, 502);
+
+  const blobs = (tree.tree || []).filter(n => n.type === 'blob');
+  const at = new Map(blobs.map(n => [n.path, n.sha]));
+
+  // Which items are we moving?
+  const itemPrefix = `${from}/manifests/items/`;
+  const chosen = blobs.filter(n => {
+    if (!n.path.startsWith(itemPrefix) || !n.path.endsWith('.json')) return false;
+    const [cat, file] = n.path.slice(itemPrefix.length).split('/');
+    if (cat === 'orphan') return false;          // the pen never promotes
+    return !slugs || slugs.includes(file.replace(/\.json$/, ''));
+  });
+  if (!chosen.length) return json({ error: 'found nothing to promote' }, 404);
+
+  const files = [];
+  const seen = new Set();
+  const add = (path, sha) => { if (!seen.has(path)) { seen.add(path); files.push({ path, sha }); } };
+
+  const summary = [];
+  const cats = new Set();
+
+  for (const node of chosen) {
+    const rel = node.path.slice(from.length + 1);           // manifests/items/<cat>/<slug>.json
+    const [cat, file] = node.path.slice(itemPrefix.length).split('/');
+    const slug = file.replace(/\.json$/, '');
+
+    let item;
+    try { item = JSON.parse(await blobText(env, node.sha)); }
+    catch { return json({ error: `${rel} is not valid JSON; nothing promoted` }, 422); }
+
+    const images = Array.isArray(item.images) ? item.images : [];
+    if (item.status === 'published' && !images.length) {
+      return json({ error: `${slug} is published with no photo, so it cannot be promoted. Nothing has been changed.` }, 422);
+    }
+
+    add(`${to}/${rel}`, node.sha);
+    cats.add(cat);
+
+    // its photos, and its backdrop
+    for (const img of images) {
+      const p = `${from}/${img?.file || ''}`;
+      const sha = at.get(p);
+      if (!sha) return json({ error: `${slug} refers to a missing photo: ${img?.file}. Nothing has been changed.` }, 422);
+      add(`${to}/${img.file}`, sha);
+    }
+    if (item.background && at.has(`${from}/${item.background}`)) {
+      add(`${to}/${item.background}`, at.get(`${from}/${item.background}`));
+    }
+    summary.push(slug);
+  }
+
+  // Carry each category definition across when the target does not already have it,
+  // otherwise a promoted item lands in a category the target cannot render.
+  for (const cat of cats) {
+    const src = `${from}/manifests/catalogues/${cat}.json`;
+    const dst = `${to}/manifests/catalogues/${cat}.json`;
+    if (at.has(src) && !at.has(dst)) add(dst, at.get(src));
+  }
+
+  if (files.length > 200) {
+    return json({ error: `that would copy ${files.length} files in one commit; promote fewer items at a time` }, 413);
+  }
+
+  const what = slugs ? summary.join(', ') : `everything in ${from}`;
+  const message = `Promote ${what} from ${from} to ${to}`.slice(0, 200);
+
+  try {
+    const sha = await commitFiles(env, files, message, []);
+    return json({ ok: true, commit: sha, promoted: summary, files: files.length, from, to });
+  } catch (e) {
+    return json({ error: `the promotion was refused: ${e.message || e}` }, 502);
+  }
+}
+
+/* ---------- GET /api/build ----------
+   The state of the most recent deploy, so the admin can say "your change is being
+   rendered" and then "it is live" instead of leaving someone refreshing the site. */
+async function handleBuild(request, env) {
+  try {
+    const runs = await gh(env,
+      `https://api.github.com/repos/${env.REPO}/actions/runs?per_page=1&branch=${encodeURIComponent(env.BRANCH || 'main')}`);
+    const r = (runs.workflow_runs || [])[0];
+    if (!r) return json({ ok: true, state: 'none' });
+    return json({
+      ok: true,
+      state: r.status === 'completed' ? (r.conclusion || 'unknown') : r.status,
+      title: r.display_title,
+      url: r.html_url,
+      started: r.run_started_at,
+      sha: r.head_sha,
+    });
+  } catch (e) {
+    return json(readFailure(env, e), 502);
+  }
+}
+
 async function handleWrite(request, env) {
   let body;
   try { body = await request.json(); }
@@ -406,6 +577,13 @@ async function commitFiles(env, files, message, deletes = []) {
 
   const tree = [];
   for (const f of files) {
+    // A file that already names a blob is reused as-is. Promotion works this way:
+    // the bytes are already in the repository, so copying an environment is a tree
+    // that points at the same blobs rather than a re-upload of every photo.
+    if (f.sha) {
+      tree.push({ path: f.path, mode: '100644', type: 'blob', sha: f.sha });
+      continue;
+    }
     const blob = await gh(env, api('/git/blobs'), {
       method: 'POST',
       body: JSON.stringify({ content: f.contentsBase64, encoding: 'base64' }),

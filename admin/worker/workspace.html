@@ -255,10 +255,13 @@ const S = {
   me:null,                      // {email} from the Access assertion
   items:null,                   // {catalogue: [item]} from the repository
   cats:null,                    // [catalogue] from <env>/manifests/catalogues/
-  loadingItems:false, itemsError:null,
+  loadingItems:false, itemsError:null, itemsRemedy:null,
   editing:null,                 // the item being edited, when not a new one
   confirmDelete:null,
   shared:null,                  // slug whose link was just copied
+  build:null,                   // the latest deploy, from /api/build
+  buildTimer:null,
+  promoteTo:'review', promoteSel:null, promoting:false, promoted:null,
   newCat:null,                  // the catalogue being created
   editCat:null,                 // the catalogue being edited, as a draft of its fields
   confirmCatDelete:false,
@@ -283,6 +286,7 @@ function boot(){
   loadDrafts();
   loadMe();
   loadItems();
+  loadBuild();
 }
 
 async function loadMe(){
@@ -299,8 +303,12 @@ async function loadItems(){
   S.loadingItems = true; S.itemsError = null; render();
   try {
     const r = await fetch(`/api/items?env=${encodeURIComponent(TARGET_ENV)}`);
-    const d = await r.json();
-    if (!r.ok || !d.ok) throw new Error(d.error || `listing returned ${r.status}`);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      S.itemsRemedy = d.remedy || null;
+      throw new Error(d.error || `listing returned ${r.status}`);
+    }
+    S.itemsRemedy = null;
     S.items = d.catalogues || {};
     const defs = (d.catalogueDefs || []).map(asCatalogue);
     if (defs.length) S.cats = defs;
@@ -482,7 +490,7 @@ function pickCategory(slug){
 }
 
 function editItem(slug){
-  const list = (S.items?.[S.cat.slug]) || [];
+  const list = (S.cat && S.items?.[S.cat.slug]) || [];
   const it = list.find(x => x.slug === slug);
   if (!it) return;
   S.editing = it;
@@ -533,6 +541,40 @@ async function deleteItem(slug){
   }
   S.publishing = false; render();
 }
+
+/* ---------- the deploy ----------
+   A publish is only half the story: the ads are rendered and the site rebuilt by CI
+   afterwards. Without this the admin went quiet for a minute and the only way to know
+   whether a change had landed was to reload the public site and look. */
+async function loadBuild(){
+  try {
+    const r = await fetch('/api/build');
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.ok) { S.build = d; render(); }
+  } catch {}
+}
+
+/* Poll while a run is in flight, then stop. Cheap: one call every 8s for about a
+   minute, and only after the admin has actually written something. */
+function watchBuild(){
+  clearInterval(S.buildTimer);
+  let left = 30;
+  const tick = async () => {
+    await loadBuild();
+    const done = !S.build || ['success','failure','cancelled','unknown','none'].includes(S.build.state);
+    if (done || --left <= 0) { clearInterval(S.buildTimer); S.buildTimer = null; }
+  };
+  tick();
+  S.buildTimer = setInterval(tick, 8000);
+}
+
+const BUILD_WORDS = {
+  queued:      ['Rendering queued',   'ok'],
+  in_progress: ['Rendering the ads',  'ok'],
+  success:     ['Live on the site',   'ok'],
+  failure:     ['The last build failed', 'warn'],
+  cancelled:   ['The last build was cancelled', 'warn'],
+};
 
 /* ---------- deactivate / activate ----------
    The generator only renders an item when its status is "published", so flipping the
@@ -594,6 +636,67 @@ async function copy(text){
   } catch {}
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   return false;
+}
+
+/* ---------- promotion ----------
+   Moving approved work to review and then production. The copying happens in the
+   Worker, which rewrites the target's tree to point at blobs that are already in the
+   repository: promoting a vehicle with four photos transfers no image data at all.
+
+   Rendered ads are not copied. CI re-renders the target from the manifests it just
+   received, so an environment's artwork is always built from its own inputs. */
+const PROMOTE_TARGETS = [
+  { env:'review',     label:'Review',     hint:'for the client to sign off' },
+  { env:'production', label:'Production', hint:'the live site buyers see' },
+];
+
+function startPromote(){
+  S.promoteTo = 'review';
+  S.promoteSel = null;          // null = everything in the source environment
+  S.promoted = null; S.error = null;
+  go('promote');
+}
+
+function togglePromote(slug){
+  const all = promotableSlugs();
+  if (S.promoteSel === null) S.promoteSel = all.slice();      // first click: start from all
+  const i = S.promoteSel.indexOf(slug);
+  if (i === -1) S.promoteSel.push(slug); else S.promoteSel.splice(i, 1);
+  if (S.promoteSel.length === all.length) S.promoteSel = null;
+  render();
+}
+
+function promotableSlugs(){
+  const out = [];
+  for (const [cat, list] of Object.entries(S.items || {})){
+    if (cat === ORPHAN_CATALOGUE) continue;
+    for (const it of list) out.push(it.slug);
+  }
+  return out;
+}
+
+function isPromoting(slug){
+  return S.promoteSel === null || S.promoteSel.includes(slug);
+}
+
+async function doPromote(){
+  const chosen = S.promoteSel;
+  if (chosen && !chosen.length){ S.error = 'Nothing is selected.'; return render(); }
+  S.promoting = true; S.error = null; render();
+  try {
+    const res = await fetch('/api/promote', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ from: TARGET_ENV, to: S.promoteTo, slugs: chosen }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.ok) throw new Error(out.error || `the endpoint returned ${res.status}`);
+    S.promoted = out;
+    watchBuild();
+  } catch (e) {
+    S.error = 'Could not promote: ' + (e?.message || 'unknown error');
+  }
+  S.promoting = false; render();
 }
 
 /* ---------- catalogues ----------
@@ -798,6 +901,7 @@ async function publish(){
     const out = await res.json().catch(() => ({}));
     if (!res.ok || !out.ok) throw new Error(out.error || `endpoint returned ${res.status}`);
     S.published = { commit: out.commit, at: new Date().toISOString(), catalogue: S.itemCat };
+    watchBuild();
     loadItems();
   } catch (e) {
     S.error = 'Publish failed: ' + (e?.message || 'unknown error');
@@ -834,6 +938,26 @@ function vWorkspace(){
         <span class="chip">${esc(d.catalogue || '')}</span>
       </div>`).join('')}
     </div>` : '';
+  // A failed listing used to be invisible here: the tiles fell back to a built-in list
+  // and showed no counts, which reads as "there is nothing in your catalogue" rather
+  // than "the catalogue could not be read". Say it plainly instead, and do not draw
+  // tiles that would imply the categories below are what the repository holds.
+  if (S.itemsError) {
+    return `
+    <p class="eyebrow">Autoline · Workspace</p>
+    <h1>Can't read the catalogue</h1>
+    <p class="lede">Your products are safe. This is the admin failing to read them from
+      the repository &mdash; nothing has been changed or deleted.</p>
+    <div class="note" style="margin-top:20px"><b>What went wrong.</b> ${esc(S.itemsError)}</div>
+    ${S.itemsRemedy ? `<div class="card"><div class="card-h">How to fix it</div>
+      <div class="card-b"><pre class="payload">${esc(S.itemsRemedy)}</pre></div></div>` : ''}
+    <div style="display:flex;gap:9px;margin-top:18px">
+      <button class="btn" onclick="loadItems()" ${S.loadingItems?'disabled':''}>
+        ${S.loadingItems ? '<span class="spin"></span> Trying again' : 'Try again'}
+      </button>
+      <a class="btn ghost" target="_blank" rel="noopener" href="${TARGET_URL}">See the live site</a>
+    </div>`;
+  }
   return `
     <p class="eyebrow">Autoline · Workspace</p>
     <h1>What would you like to change?</h1>
@@ -858,6 +982,12 @@ function vWorkspace(){
           <p>${sub}</p>
           <div class="go">Open &rarr;</div>
         </button>`;}).join('')}
+      <button class="tile" onclick="startPromote()">
+        <div class="mk" style="background:var(--warn);color:#1a1205;font-family:Inter,system-ui,sans-serif">&rarr;</div>
+        <h2>Promote</h2>
+        <p>Send approved work to review, then to the live site</p>
+        <div class="go">Open &rarr;</div>
+      </button>
       <button class="tile" onclick="startCatalogue()" style="border-style:dashed">
         <div class="mk" style="background:transparent;border:1px dashed var(--line);color:var(--dim)">+</div>
         <h2>New category</h2>
@@ -865,6 +995,7 @@ function vWorkspace(){
         <div class="go">Create &rarr;</div>
       </button>
     </div>
+    ${buildChip()}
     ${drafts}`;
 }
 
@@ -1155,6 +1286,113 @@ function vEditCat(){
     </div>`;
 }
 
+function vPromote(){
+  if (S.promoted){
+    const t = PROMOTE_TARGETS.find(x => x.env === S.promoted.to);
+    return `
+      <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Promoted</div>
+      <div class="card" style="max-width:580px;margin-top:20px">
+        <div class="card-b" style="text-align:center;padding:32px">
+          <div style="font-size:42px;color:var(--acc);line-height:1">&#10003;</div>
+          <h1 style="font-size:24px;margin:12px 0 8px">Promoted to ${esc(t?.label || S.promoted.to)}</h1>
+          <p class="dim" style="margin:0 0 6px">
+            ${S.promoted.promoted.length} item${S.promoted.promoted.length===1?'':'s'},
+            ${S.promoted.files} file${S.promoted.files===1?'':'s'}, in commit
+            <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.promoted.commit.slice(0,7))}</span>.
+            The ads are being re-rendered there now.</p>
+          ${buildChip()}
+          <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
+            <a class="btn" target="_blank" rel="noopener"
+               href="${SITE}/${esc(S.promoted.to)}/">Open ${esc(t?.label || S.promoted.to)}</a>
+            <button class="btn ghost" onclick="S.promoted=null;go('workspace')">Done</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const all = promotableSlugs();
+  const rows = Object.entries(S.items || {})
+    .filter(([cat]) => cat !== ORPHAN_CATALOGUE)
+    .map(([cat, list]) => {
+      const c = catalogues().find(x => x.slug === cat);
+      return `<div class="row" style="background:var(--panel2)">
+          <div style="flex:1;font-weight:600">${esc(c?.label || cat)}</div>
+          <span class="chip">${list.length}</span>
+        </div>` + list.map(it => {
+        const name = [it.year, it.make, it.model].filter(Boolean).join(' ') || it.slug;
+        const on = isPromoting(it.slug);
+        const draft = it.status !== 'published'
+          ? '<span class="tag">draft &mdash; stays off the site</span>' : '';
+        return `<div class="row">
+          <label style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;cursor:pointer">
+            <input type="checkbox" ${on?'checked':''} onchange="togglePromote('${esc(it.slug)}')">
+            <span>
+              <span style="font-weight:600">${esc(name)}</span> ${draft}
+              <span class="dim" style="font-size:12.5px;display:block">${esc(it.subtitle || '')}</span>
+            </span>
+          </label>
+        </div>`;}).join('');
+    }).join('');
+
+  const n = S.promoteSel === null ? all.length : S.promoteSel.length;
+
+  return `
+    <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Promote</div>
+    <h1>Promote</h1>
+    <p class="lede">Copy approved work out of the preview site. Manifests and photos are
+      copied; the ads are re-rendered where they land, so each environment's artwork is
+      always built from its own inputs.</p>
+
+    ${S.error ? `<div class="note" style="margin-top:18px"><b>Problem.</b> ${esc(S.error)}</div>` : ''}
+
+    <div class="card" style="margin-top:22px">
+      <div class="card-h">Where to</div>
+      <div class="card-b">
+        <div class="acts">
+          ${PROMOTE_TARGETS.map(t => `
+            <button class="act ${t.env===S.promoteTo?'sel':''}"
+                    onclick="S.promoteTo='${t.env}';render()">
+              <div>${esc(t.label)}<small>${esc(t.hint)}</small></div>
+            </button>`).join('')}
+        </div>
+        ${S.promoteTo === 'production' ? `<div class="note" style="margin:16px 0 0">
+          <b>This is the live site.</b> Whatever you promote here is what buyers see,
+          about a minute after you press the button.
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">What to promote
+        <span class="chip" style="margin-left:auto">${n} of ${all.length}</span></div>
+      ${rows || '<div class="card-b dim">Nothing to promote yet.</div>'}
+    </div>
+
+    <p class="dim" style="font-size:12.5px;margin:0 0 14px">
+      A draft is copied across as a draft. It will not appear on ${esc(S.promoteTo)}
+      until it is published there.
+    </p>
+
+    <div style="display:flex;gap:9px">
+      <button class="btn" onclick="doPromote()" ${S.promoting||!all.length||n===0?'disabled':''}>
+        ${S.promoting ? '<span class="spin"></span> Promoting'
+                      : `Promote ${n} item${n===1?'':'s'} to ${esc(S.promoteTo)}`}
+      </button>
+      <button class="btn ghost" onclick="go('workspace')">Cancel</button>
+    </div>`;
+}
+
+/* The deploy chip, shown wherever the answer to "has it landed yet?" matters. */
+function buildChip(){
+  if (!S.build || S.build.state === 'none') return '';
+  const [word, kind] = BUILD_WORDS[S.build.state] || [S.build.state, ''];
+  const spin = ['queued','in_progress'].includes(S.build.state)
+    ? '<span class="spin" style="margin-right:7px"></span>' : '';
+  return `<div style="margin-top:14px">
+    <a class="chip ${kind}" target="_blank" rel="noopener" href="${esc(S.build.url || '#')}"
+       style="text-decoration:none">${spin}${esc(word)}</a></div>`;
+}
+
 function vMe(){
   return `
     <div class="crumbs"><b onclick="go('workspace')">Workspace</b> / Profile</div>
@@ -1247,7 +1485,9 @@ function vPlan(){
       <b onclick="go('catalogue')">${esc(S.cat.label)}</b> / ${S.editing ? 'Edit' : 'Review'}</div>
     <h1>${S.editing ? 'Edit ' + esc([S.editing.year, S.editing.make, S.editing.model].filter(Boolean).join(' ')) : "Here's what I'll do"}</h1>
     <p class="lede">${S.editing
-      ? 'Change anything below, then publish. Existing photos are kept unless you add new ones.'
+      ? 'Change anything below, then publish. Existing photos are kept unless you add new ones. '
+        + 'Publishing redraws this item\u2019s three ads from the values here \u2014 there is nothing to '
+        + 'regenerate by hand.'
       : 'Nothing has been written. Edit anything below, then confirm.'}</p>
 
     <div class="sum" style="margin-top:20px">${esc(S.plan.summary)}</div>
@@ -1327,6 +1567,7 @@ function vResult(){
           <p class="dim" style="margin:0 0 6px">Commit
             <span style="font-family:ui-monospace,Menlo,monospace">${esc(S.published.commit.slice(0,7))}</span>,
             on the <strong>preview</strong> site. Rebuilds in about a minute.</p>
+          ${buildChip()}
           <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px">
             <a class="btn" target="_blank" rel="noopener"
                href="${itemUrl(p.files[0].contents.slug, S.published.catalogue)}">View this item</a>
@@ -1409,6 +1650,7 @@ function render(){
           : S.view==='catalogue' ? vCatalogue()
           : S.view==='newcat'    ? vNewCat()
           : S.view==='editcat'   ? vEditCat()
+          : S.view==='promote'   ? vPromote()
           : S.view==='me'        ? vMe()
           : S.view==='task'      ? vTask()
           : S.view==='plan'      ? vPlan()

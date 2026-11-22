@@ -14,9 +14,18 @@ fallthrough = true
 [vars]
 REPO = "Cloudstrucc/automotive-studio"
 BRANCH = "main"
-# The safety boundary: nothing outside these prefixes can be written, so even a
-# leaked credential cannot reach .github/workflows/, build.py or tools/.
-ALLOW_PREFIXES = "manifests/,source-photos/,development/"
+# The safety boundary for POST /write: nothing outside these prefixes can be written,
+# so even a leaked credential cannot reach .github/workflows/, build.py or tools/.
+#
+# Narrower than it used to be. It was "manifests/,source-photos/,development/", which
+# also permitted writes to development/ads/ -- the generated artwork. The admin never
+# writes an ad, so allowing it bought nothing and widened the blast radius.
+#
+# review/ and production/ are deliberately absent. They are reachable only through
+# POST /api/promote, which does not take caller-supplied paths at all: it builds every
+# path itself from a validated environment name and a slug. Promotion is therefore a
+# narrow, auditable operation rather than a reason to open up the general write.
+ALLOW_PREFIXES = "development/manifests/,development/source-photos/"
 
 # Secrets are NOT set here:
 #   wrangler secret put GITHUB_TOKEN      fine-grained PAT, one repo, Contents: RW
