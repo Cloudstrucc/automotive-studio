@@ -1,0 +1,1986 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Autoline — Build Book</title>
+<meta name="description" content="Developer and configuration guide for the Autoline vehicle ad portal: architecture, environments, GitHub and Cloudflare administration, and end-to-end usage.">
+<script>
+/* Applied before first paint so a stored choice does not flash the other theme. */
+try{var _t=localStorage.getItem('autoline-book-theme');
+  if(_t==='dark'||_t==='light')document.documentElement.dataset.theme=_t;}catch(e){}
+</script>
+<style>
+/* ============================================================================
+   Autoline Build Book — Velocity design direction.
+   The tokens below are the platform's own (assets/style.css), extended with the
+   few a long document needs that a lineup board does not: a light theme, a
+   reading measure, and callout colours.
+   ========================================================================== */
+:root{
+  --bg:#0a0e14; --panel:#11161f; --panel2:#0d1219; --ink:#eef2f6; --soft:#9fb0c2;
+  --dim:#6f8295; --line:#1e2731; --acc:#19e36a; --acc-ink:#04140a;
+  --prod:#19e36a; --review:#f5a623; --dev:#4d87ff; --stop:#ff5f56;
+  --glow:radial-gradient(120% 70% at 80% -5%,#15202e 0%,#0a0e14 55%);
+  --cond:"Archivo","Arial Narrow","Helvetica Neue",Impact,sans-serif;
+  --body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --rail:286px;
+}
+html[data-theme="light"]{
+  --bg:#f6f8fa; --panel:#fff; --panel2:#eef2f6; --ink:#0d1219; --soft:#44566a;
+  --dim:#6f8295; --line:#dde4ec; --acc:#0f9e49; --acc-ink:#fff;
+  --prod:#0f9e49; --review:#b26a00; --dev:#2d5fd0; --stop:#c0392b;
+  --glow:radial-gradient(120% 70% at 80% -5%,#e8eef7 0%,#f6f8fa 55%);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--glow) no-repeat,var(--bg);color:var(--ink);
+  font-family:var(--body);line-height:1.62;-webkit-font-smoothing:antialiased;
+  font-size:15px}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.88em;background:var(--panel2);
+  border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--ink)}
+h1,h2,h3,h4{font-family:var(--cond);font-weight:800;letter-spacing:-.01em;line-height:1.14;margin:0}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 84%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .in{max-width:1420px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--cond);font-weight:800;
+  text-transform:uppercase;font-size:15.5px;color:var(--ink)}
+.brand:hover{text-decoration:none}
+.brand i{width:13px;height:13px;background:var(--acc);clip-path:polygon(0 0,100% 0,65% 100%,0 100%)}
+.brand span{color:var(--dim);font-weight:700}
+.pills{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--soft);border:1px solid var(--line);
+  border-radius:100px;padding:5px 11px;background:var(--panel)}
+button.pill{cursor:pointer}
+button.pill:hover{color:var(--acc);border-color:var(--acc)}
+.burger{display:none}
+
+/* ---------- shell ---------- */
+.shell{max-width:1420px;margin:0 auto;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);
+  gap:38px;padding:0 22px}
+
+/* ---------- rail ---------- */
+nav.rail{position:sticky;top:53px;align-self:start;max-height:calc(100vh - 53px);
+  overflow-y:auto;padding:26px 0 60px;scrollbar-width:thin}
+nav.rail .grp{font-family:var(--cond);font-weight:800;text-transform:uppercase;
+  letter-spacing:.12em;font-size:10.5px;color:var(--dim);margin:22px 0 7px;padding:0 10px}
+nav.rail .grp:first-child{margin-top:0}
+nav.rail a{display:block;padding:6px 10px;border-radius:7px;font-size:13.4px;
+  color:var(--soft);border-left:2px solid transparent;line-height:1.35}
+nav.rail a:hover{color:var(--ink);background:var(--panel);text-decoration:none}
+nav.rail a.on{color:var(--acc);border-left-color:var(--acc);background:var(--panel)}
+nav.rail .num{color:var(--dim);font-variant-numeric:tabular-nums;margin-right:7px;font-size:12px}
+
+/* ---------- main ---------- */
+main{padding:34px 0 120px;min-width:0;max-width:860px}
+section{scroll-margin-top:72px;padding-bottom:12px}
+section+section{margin-top:54px;padding-top:40px;border-top:1px solid var(--line)}
+.eyebrow{font-family:var(--cond);font-weight:800;text-transform:uppercase;letter-spacing:.14em;
+  font-size:11px;color:var(--acc);margin:0 0 9px}
+h1{font-size:clamp(30px,4.4vw,43px);text-transform:uppercase;margin-bottom:14px}
+h2{font-size:clamp(23px,3vw,30px);text-transform:uppercase;margin-bottom:13px}
+h3{font-size:17.5px;margin:30px 0 9px;text-transform:none;letter-spacing:0;font-weight:700}
+h4{font-size:14.5px;margin:22px 0 7px;text-transform:uppercase;letter-spacing:.07em;color:var(--soft)}
+p{margin:0 0 14px}
+.lead{font-size:16.5px;color:var(--soft);margin-bottom:20px}
+ul,ol{margin:0 0 15px;padding-left:22px}
+li{margin:5px 0}
+li>ul,li>ol{margin:5px 0}
+strong{color:var(--ink);font-weight:650}
+hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin:0 0 18px;border:1px solid var(--line);border-radius:11px;
+  background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.6px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--cond);font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+  font-size:11px;color:var(--dim);background:var(--panel2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.num-col{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- code ---------- */
+.cw{position:relative;margin:0 0 18px}
+pre{margin:0;background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+  padding:15px 17px;overflow-x:auto;font-family:var(--mono);font-size:12.7px;
+  line-height:1.62;color:var(--ink)}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+.cp{position:absolute;top:9px;right:9px;font-family:var(--cond);font-weight:700;font-size:10.5px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--dim);background:var(--panel);
+  border:1px solid var(--line);border-radius:7px;padding:4px 9px;cursor:pointer;opacity:0;
+  transition:opacity .13s}
+.cw:hover .cp,.cp:focus{opacity:1}
+.cp:hover{color:var(--acc);border-color:var(--acc)}
+
+/* ---------- callouts ---------- */
+.cal{border:1px solid var(--line);border-left:3px solid var(--dim);border-radius:10px;
+  padding:13px 16px;margin:0 0 18px;background:var(--panel);font-size:14px}
+.cal p:last-child{margin-bottom:0}
+.cal b{font-family:var(--cond);font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+  font-size:11.5px;display:block;margin-bottom:5px;color:var(--soft)}
+.cal.ok{border-left-color:var(--acc)} .cal.ok b{color:var(--acc)}
+.cal.warn{border-left-color:var(--review)} .cal.warn b{color:var(--review)}
+.cal.stop{border-left-color:var(--stop)} .cal.stop b{color:var(--stop)}
+.cal.info{border-left-color:var(--dev)} .cal.info b{color:var(--dev)}
+
+/* ---------- chips & badges ---------- */
+.chip{display:inline-block;font-family:var(--cond);font-weight:700;font-size:10.5px;
+  letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:5px;
+  border:1px solid var(--line);color:var(--soft);background:var(--panel2);white-space:nowrap}
+.chip.prod{color:var(--prod);border-color:color-mix(in srgb,var(--prod) 45%,transparent)}
+.chip.review{color:var(--review);border-color:color-mix(in srgb,var(--review) 45%,transparent)}
+.chip.dev{color:var(--dev);border-color:color-mix(in srgb,var(--dev) 45%,transparent)}
+.chip.acc{color:var(--acc-ink);background:var(--acc);border-color:var(--acc)}
+.m{display:inline-block;font-family:var(--mono);font-weight:700;font-size:11px;padding:2px 7px;
+  border-radius:5px;margin-right:7px;color:var(--acc-ink)}
+.m.get{background:var(--dev)} .m.post{background:var(--acc)} .m.del{background:var(--stop)}
+
+/* ---------- step list ---------- */
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:0 0 18px}
+ol.steps>li{counter-increment:s;position:relative;padding:0 0 16px 40px;margin:0;
+  border-left:1px solid var(--line);margin-left:13px}
+ol.steps>li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.steps>li::before{content:counter(s);position:absolute;left:-13px;top:-2px;width:26px;height:26px;
+  border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--soft);
+  font-family:var(--cond);font-weight:800;font-size:12.5px;display:flex;align-items:center;
+  justify-content:center}
+ol.steps>li>b:first-child{display:block;margin-bottom:5px;color:var(--ink);font-weight:650}
+
+/* ---------- cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:13px;margin:0 0 18px}
+.card{border:1px solid var(--line);border-radius:11px;padding:15px 16px;background:var(--panel)}
+.card h4{margin:0 0 6px;color:var(--ink);font-size:13px}
+.card p{margin:0;font-size:13.4px;color:var(--soft)}
+
+/* ---------- figures / diagrams ---------- */
+figure{margin:0 0 20px;border:1px solid var(--line);border-radius:12px;background:var(--panel);
+  padding:20px 18px 14px;overflow-x:auto}
+figure svg{display:block;margin:0 auto;max-width:100%;height:auto}
+figcaption{margin-top:13px;padding-top:11px;border-top:1px solid var(--line);
+  font-size:12.6px;color:var(--dim);text-align:center}
+.dg-box{fill:var(--panel2);stroke:var(--line)}
+.dg-accent{fill:color-mix(in srgb,var(--acc) 13%,transparent);stroke:var(--acc)}
+.dg-dev{fill:color-mix(in srgb,var(--dev) 13%,transparent);stroke:var(--dev)}
+.dg-rev{fill:color-mix(in srgb,var(--review) 13%,transparent);stroke:var(--review)}
+.dg-t{fill:var(--ink);font-family:var(--body);font-size:12.5px}
+.dg-tb{fill:var(--ink);font-family:var(--cond);font-weight:800;font-size:12.5px;
+  text-transform:uppercase;letter-spacing:.06em}
+.dg-s{fill:var(--dim);font-family:var(--body);font-size:10.8px}
+.dg-l{stroke:var(--dim);fill:none;stroke-width:1.3}
+.dg-la{stroke:var(--acc);fill:none;stroke-width:1.5}
+.dg-dash{stroke-dasharray:4 3}
+
+/* ---------- misc ---------- */
+.tag-legend{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 16px}
+.kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:5px;padding:1px 6px;background:var(--panel2)}
+.toc-mini{columns:2;column-gap:28px;font-size:13.6px;margin:0 0 18px}
+.toc-mini a{display:block;padding:3px 0;break-inside:avoid}
+@media(max-width:1040px){
+  :root{--rail:240px}
+  .shell{gap:26px}
+}
+@media(max-width:860px){
+  .shell{grid-template-columns:1fr;padding:0 16px}
+  nav.rail{position:fixed;inset:53px 0 auto 0;max-height:calc(100vh - 53px);z-index:35;
+    background:var(--bg);border-bottom:1px solid var(--line);padding:16px;display:none}
+  nav.rail.open{display:block}
+  .burger{display:inline-block}
+  main{padding-top:24px;max-width:none}
+  .toc-mini{columns:1}
+  .top .in{padding:10px 16px}
+}
+@media print{
+  nav.rail,.top,.cp{display:none}
+  .shell{grid-template-columns:1fr;max-width:none}
+  section+section{page-break-before:always}
+  body{background:#fff;color:#000;font-size:11pt}
+}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="in">
+  <a class="brand" href="#intro"><i></i>Autoline <span>· Build Book</span></a>
+  <div class="pills">
+    <span class="pill">Rev 2026-11-22</span>
+    <button class="pill burger" id="burger" type="button" aria-expanded="false">Contents</button>
+    <button class="pill" id="tsw" type="button" aria-pressed="true">Light</button>
+  </div>
+</div></header>
+
+<div class="shell">
+<nav class="rail" id="rail" aria-label="Chapters">
+  <div class="grp">Orientation</div>
+  <a href="#intro"><span class="num">1</span>What Autoline is</a>
+  <a href="#architecture"><span class="num">2</span>Architecture</a>
+  <a href="#layout"><span class="num">3</span>Repository layout</a>
+
+  <div class="grp">How content works</div>
+  <a href="#model"><span class="num">4</span>The data model</a>
+  <a href="#categories"><span class="num">5</span>Categories &amp; routes</a>
+  <a href="#states"><span class="num">6</span>States &amp; lifecycle</a>
+  <a href="#pipeline"><span class="num">7</span>The publish pipeline</a>
+
+  <div class="grp">Environments</div>
+  <a href="#envmap"><span class="num">8</span>Environment map</a>
+  <a href="#promotion"><span class="num">9</span>Promotion</a>
+
+  <div class="grp">Administration</div>
+  <a href="#github"><span class="num">10</span>Administering GitHub</a>
+  <a href="#cloudflare"><span class="num">11</span>Administering Cloudflare</a>
+  <a href="#access"><span class="num">12</span>Access &amp; who can sign in</a>
+  <a href="#local"><span class="num">13</span>Local development</a>
+
+  <div class="grp">Using the app</div>
+  <a href="#publish-item"><span class="num">14</span>Publish a product</a>
+  <a href="#edit-item"><span class="num">15</span>Edit, deactivate, delete</a>
+  <a href="#manage-cats"><span class="num">16</span>Manage categories</a>
+  <a href="#regen"><span class="num">17</span>Regenerate ads by hand</a>
+
+  <div class="grp">Reference</div>
+  <a href="#api"><span class="num">18</span>Worker API</a>
+  <a href="#manifest-ref"><span class="num">19</span>Manifest fields</a>
+  <a href="#security"><span class="num">20</span>Security model</a>
+  <a href="#trouble"><span class="num">21</span>Troubleshooting</a>
+  <a href="#decisions"><span class="num">22</span>Design decisions</a>
+  <a href="#glossary"><span class="num">23</span>Glossary</a>
+</nav>
+
+<main>
+<section id="intro">
+<p class="eyebrow">Chapter 1</p>
+<h1>What Autoline is</h1>
+<p class="lead">A storefront for a pre-owned vehicle dealer in Ottawa, and an admin app the
+dealer uses to run it. The storefront is a static site with no server and no database. The
+admin is a single Cloudflare Worker. Between them sits one GitHub repository, which is the
+only database either of them has.</p>
+
+<p>Two things are worth fixing in your mind before anything else, because every other decision
+in this book follows from them.</p>
+
+<h3>The repository is the database</h3>
+<p>There is no Postgres, no Firebase, no CMS. A vehicle is a JSON file. Its photos are JPEGs
+next to it. A category is a JSON file. When the dealer publishes something in the admin, the
+Worker writes those files into the repository as a git commit. When they delete something, it
+deletes files. The site is then rebuilt from whatever files exist.</p>
+<p>This means every change is a commit, with an author, a timestamp and a diff; anything can be
+reverted with <code>git revert</code>; and the whole state of the business can be read by
+anyone who can read JSON.</p>
+
+<h3>Rendered ads are generated, not uploaded</h3>
+<p>The dealer never makes an image. They type a year, a price, some specs, and upload a photo
+of the car. A Python generator composes that into three finished advertisement images — one
+portrait for phones, one square-ish for social, one widescreen — with the price, the specs
+and the contact details drawn onto them in the Velocity house style. Those generated images
+are what the public site shows and what the dealer downloads to post elsewhere.</p>
+
+<div class="cal info"><b>The one-line version</b>
+<p>Dealer types a car into a web form → Worker commits JSON + photo to GitHub → GitHub Actions
+renders three ad images and rebuilds the site → GitHub Pages serves it. About a minute,
+end to end, with no human in the middle.</p></div>
+
+<h3>Who the people are</h3>
+<div class="scroll"><table>
+<thead><tr><th>Role</th><th>Who</th><th>What they touch</th></tr></thead>
+<tbody>
+<tr><td><strong>Owner / developer</strong></td><td>Fred Pearson (CloudStrucc)</td>
+<td>The repository, the Worker, the Cloudflare account, this book</td></tr>
+<tr><td><strong>Dealer / client</strong></td><td>The business the ads are for</td>
+<td>The admin app only — never git, never Cloudflare</td></tr>
+<tr><td><strong>Buyer</strong></td><td>The public</td>
+<td>The published site; no login, nothing to install</td></tr>
+</tbody></table></div>
+
+<h3>Where things live</h3>
+<div class="scroll"><table>
+<thead><tr><th>Thing</th><th>Address</th></tr></thead>
+<tbody>
+<tr><td>Public site</td><td><code>https://cloudstrucc.github.io/automotive-studio/</code></td></tr>
+<tr><td>Admin app</td><td><code>https://autoline-write.cloustrucc.workers.dev</code></td></tr>
+<tr><td>Repository</td><td><code>github.com/Cloudstrucc/automotive-studio</code></td></tr>
+<tr><td>Contact printed on every ad</td><td><code>1 613 447 4520</code> · <code>omarranwar58@gmail.com</code></td></tr>
+</tbody></table></div>
+<div class="cal warn"><b>Note the spelling</b>
+<p>The Cloudflare subdomain is <code>cloustrucc</code> — missing the <em>d</em> — while the
+GitHub organisation is <code>Cloudstrucc</code>. This is not a typo in this book. It is a typo
+baked into the Workers subdomain, and changing it would change the admin's URL.</p></div>
+</section>
+
+
+<section id="architecture">
+<p class="eyebrow">Chapter 2</p>
+<h2>Architecture</h2>
+<p class="lead">Two halves that never talk to each other directly. They communicate only by
+one of them committing files that the other later reads.</p>
+
+<figure>
+<svg viewBox="0 0 840 500" role="img" aria-label="Architecture diagram: the admin Worker commits to GitHub; GitHub Actions renders ads and deploys to Pages.">
+  <!-- lanes -->
+  <rect class="dg-box" x="12" y="14" width="250" height="196" rx="12"/>
+  <text class="dg-tb" x="28" y="40">The admin half</text>
+  <text class="dg-s" x="28" y="57">Cloudflare · writes</text>
+
+  <rect class="dg-box" x="300" y="14" width="238" height="470" rx="12"/>
+  <text class="dg-tb" x="316" y="40">The repository</text>
+  <text class="dg-s" x="316" y="57">GitHub · the database</text>
+
+  <rect class="dg-box" x="576" y="14" width="250" height="470" rx="12"/>
+  <text class="dg-tb" x="592" y="40">The publishing half</text>
+  <text class="dg-s" x="592" y="57">GitHub Actions + Pages</text>
+
+  <!-- admin boxes -->
+  <rect class="dg-dev" x="30" y="76" width="214" height="52" rx="9"/>
+  <text class="dg-t" x="44" y="99">Dealer's browser</text>
+  <text class="dg-s" x="44" y="116">workspace.html, served by the Worker</text>
+
+  <rect class="dg-dev" x="30" y="142" width="214" height="52" rx="9"/>
+  <text class="dg-t" x="44" y="165">Worker · autoline-write</text>
+  <text class="dg-s" x="44" y="182">holds the GitHub token + API key</text>
+
+  <!-- access gate -->
+  <rect class="dg-rev" x="30" y="236" width="214" height="46" rx="9"/>
+  <text class="dg-t" x="44" y="257">Cloudflare Access</text>
+  <text class="dg-s" x="44" y="273">authenticates before the Worker runs</text>
+  <path class="dg-l dg-dash" d="M137 236 L137 200"/>
+
+  <!-- repo contents -->
+  <rect class="dg-accent" x="318" y="76" width="202" height="46" rx="9"/>
+  <text class="dg-t" x="332" y="96">manifests/items/</text>
+  <text class="dg-s" x="332" y="112">one JSON per product</text>
+
+  <rect class="dg-accent" x="318" y="132" width="202" height="46" rx="9"/>
+  <text class="dg-t" x="332" y="152">manifests/catalogues/</text>
+  <text class="dg-s" x="332" y="168">one JSON per category</text>
+
+  <rect class="dg-accent" x="318" y="188" width="202" height="46" rx="9"/>
+  <text class="dg-t" x="332" y="208">source-photos/</text>
+  <text class="dg-s" x="332" y="224">what the dealer uploaded</text>
+
+  <rect class="dg-box" x="318" y="258" width="202" height="46" rx="9"/>
+  <text class="dg-t" x="332" y="278">ads/svg · ads/jpg</text>
+  <text class="dg-s" x="332" y="294">generated; committed back by CI</text>
+
+  <rect class="dg-box" x="318" y="330" width="202" height="62" rx="9"/>
+  <text class="dg-t" x="332" y="350">build.py · tools/</text>
+  <text class="dg-s" x="332" y="366">the generator and renderer,</text>
+  <text class="dg-s" x="332" y="380">outside the write allowlist</text>
+
+  <rect class="dg-box" x="318" y="406" width="202" height="46" rx="9"/>
+  <text class="dg-t" x="332" y="426">.github/workflows/</text>
+  <text class="dg-s" x="332" y="442">deploy.yml</text>
+
+  <!-- publishing boxes -->
+  <rect class="dg-accent" x="594" y="76" width="214" height="62" rx="9"/>
+  <text class="dg-t" x="608" y="97">1 · Which envs changed?</text>
+  <text class="dg-s" x="608" y="114">diffs manifests/ + source-photos/</text>
+  <text class="dg-s" x="608" y="128">against the previous push</text>
+
+  <rect class="dg-accent" x="594" y="150" width="214" height="76" rx="9"/>
+  <text class="dg-t" x="608" y="171">2 · Render what changed</text>
+  <text class="dg-s" x="608" y="188">gen_velocity.py writes SVG;</text>
+  <text class="dg-s" x="608" y="202">sync_ads.py renders only the</text>
+  <text class="dg-s" x="608" y="216">ads whose SVG actually differs</text>
+
+  <rect class="dg-accent" x="594" y="238" width="214" height="56" rx="9"/>
+  <text class="dg-t" x="608" y="259">3 · Commit the ads back</text>
+  <text class="dg-s" x="608" y="276">as github-actions[bot]</text>
+
+  <rect class="dg-accent" x="594" y="306" width="214" height="56" rx="9"/>
+  <text class="dg-t" x="608" y="327">4 · build.py → _site/</text>
+  <text class="dg-s" x="608" y="344">static HTML, zips, images</text>
+
+  <rect class="dg-accent" x="594" y="374" width="214" height="56" rx="9"/>
+  <text class="dg-t" x="608" y="395">5 · Deploy to Pages</text>
+  <text class="dg-s" x="608" y="412">live in about a minute</text>
+
+  <!-- arrows -->
+  <path class="dg-la" d="M137 128 L137 142" marker-end="url(#ar)"/>
+  <path class="dg-la" d="M244 168 L300 120" marker-end="url(#ar)"/>
+  <text class="dg-s" x="247" y="150">commit</text>
+
+  <path class="dg-la" d="M520 100 L576 100" marker-end="url(#ar)"/>
+  <text class="dg-s" x="524" y="92">push</text>
+
+  <path class="dg-la" d="M701 138 L701 150" marker-end="url(#ar)"/>
+  <path class="dg-la" d="M701 226 L701 238" marker-end="url(#ar)"/>
+  <path class="dg-la" d="M701 294 L701 306" marker-end="url(#ar)"/>
+  <path class="dg-la" d="M701 362 L701 374" marker-end="url(#ar)"/>
+
+  <path class="dg-l dg-dash" d="M594 266 L540 281" marker-end="url(#ard)"/>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--acc)"/></marker>
+    <marker id="ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--dim)"/></marker>
+  </defs>
+</svg>
+<figcaption>The admin writes only to the left-hand side of the repository. Everything that
+decides what the site <em>does</em> — the generator, the renderer, the workflow — is outside
+what any admin credential can reach.</figcaption>
+</figure>
+
+<h3>The four moving parts</h3>
+<div class="scroll"><table>
+<thead><tr><th>Part</th><th>Technology</th><th>Job</th><th>Where it runs</th></tr></thead>
+<tbody>
+<tr><td><code>build.py</code></td><td>Python 3, standard library only</td>
+<td>Turns manifests + rendered ads into a static site</td><td>GitHub Actions, and your laptop</td></tr>
+<tr><td><code>tools/</code></td><td>Python + Playwright + Chromium</td>
+<td>Draws the ad SVGs and renders them to JPG</td><td>GitHub Actions, and your laptop</td></tr>
+<tr><td><code>admin/worker/</code></td><td>JavaScript on Cloudflare Workers</td>
+<td>Serves the admin UI, calls Anthropic, commits to GitHub</td><td>Cloudflare's edge</td></tr>
+<tr><td><code>deploy.yml</code></td><td>GitHub Actions</td>
+<td>Orchestrates render → build → deploy on every push</td><td>GitHub</td></tr>
+</tbody></table></div>
+
+<div class="cal ok"><b>Why build.py uses no dependencies</b>
+<p>It is standard library only, deliberately. CI installs nothing to build the site, so the
+build cannot break because a package moved. Playwright is needed only to <em>render</em> ads,
+which happens only when a manifest or photo changed — most pushes skip it entirely.</p></div>
+
+<h3>So what is Wrangler?</h3>
+<p>You asked, and it is worth answering plainly because the name suggests more than it is.</p>
+<p><strong>Wrangler is Cloudflare's command-line tool for Workers.</strong> It is not a web
+framework, it is not what the site is built with, and it has nothing to do with GitHub Pages.
+It does exactly two things in this project:</p>
+<ul>
+<li><code>npx wrangler deploy</code> — uploads <code>admin/worker/</code> to Cloudflare.</li>
+<li><code>npx wrangler secret put NAME</code> — stores a secret the Worker can read.</li>
+</ul>
+<p><code>admin/worker/wrangler.toml</code> is its configuration file: the Worker's name, which
+file is its entry point, the non-secret variables, and a rule that lets <code>worker.js</code>
+import <code>workspace.html</code> as a string so it can be served from <code>GET /</code>.</p>
+<div class="cal"><b>The two halves use completely separate tooling</b>
+<p>The public site is Python + GitHub Actions + GitHub Pages. No Node, no Wrangler, no
+Cloudflare. The admin is JavaScript + Wrangler + Cloudflare Workers. No Python. The only thing
+they share is the repository.</p></div>
+</section>
+
+
+<section id="layout">
+<p class="eyebrow">Chapter 3</p>
+<h2>Repository layout</h2>
+<p class="lead">What is committed, what is generated, and what is deliberately kept out of git.</p>
+
+<div class="cw"><pre><code>automotive-studio/
+├── build.py                      the site generator — stdlib only
+├── README.md                     original quick-start (partly superseded; see note below)
+├── CLAUDE.md                     project memory for Claude Code
+├── SKILLS.md                     repeatable playbooks (partly superseded)
+├── BUILD_BOOK.html               this document
+├── .nojekyll                     stops GitHub Pages running Jekyll over the output
+│
+├── .github/workflows/
+│   └── deploy.yml                render → build → deploy, on every push to main
+│
+├── assets/
+│   └── style.css                 the Velocity theme, shared by every generated page
+│
+├── admin/
+│   ├── worker/
+│   │   ├── worker.js             the Worker: routes, auth, GitHub commits, guardrails
+│   │   ├── workspace.html        the entire admin UI, one file, no build step
+│   │   ├── wrangler.toml         Worker config + non-secret vars
+│   │   ├── test-endpoint.sh      smoke tests against a deployed Worker
+│   │   └── README.md             deploy and Access setup
+│   └── (nothing else is served)
+│
+├── tools/
+│   ├── gen_velocity.py           manifests → SVG ads
+│   ├── render_jpgs.py            SVG → JPG via headless Chromium
+│   ├── sync_ads.py               render only what changed; copy in; clean up removals
+│   ├── regen.sh                  the one command that runs all of the above
+│   ├── requirements.txt          pinned Playwright
+│   └── README.md                 ad-generation reference
+│
+├── docs/
+│   ├── CATEGORIES.md             current: routes, states, the orphan pen
+│   ├── ADMIN_APP_PLAN.md         historical: a plan that was not built
+│   ├── ADMIN_PLATFORM_PLAN.md    historical
+│   ├── AGENT_ADMIN_PLAN.md       historical
+│   ├── OPTION_B_PLAN.md          historical: the Artifact approach, abandoned
+│   └── prototype/                historical: static HTML mockups
+│
+└── production/  review/  development/        ← three identical structures
+    ├── manifests/
+    │   ├── catalogues/&lt;slug&gt;.json            a category
+    │   └── items/&lt;category&gt;/&lt;slug&gt;.json      a product
+    ├── source-photos/&lt;category&gt;/&lt;slug&gt;/
+    │   ├── 1.jpg  2.jpg …                    what the dealer uploaded
+    │   └── blur.jpg                          optional downscaled backdrop
+    ├── ads/
+    │   ├── svg/&lt;slug&gt;_&lt;format&gt;.svg           generated, committed
+    │   └── jpg/&lt;slug&gt;_&lt;format&gt;.jpg           rendered, committed
+    └── cars.json                             legacy; optional display overrides</code></pre></div>
+
+<h3>What is not in git</h3>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th>Why it is ignored</th></tr></thead>
+<tbody>
+<tr><td><code>_site/</code></td><td>Build output. Regenerated on every build; committing it would
+produce a diff on every push and serve a stale copy if anyone forgot.</td></tr>
+<tr><td><code>tools/output/</code></td><td>The renderer's staging area. <code>sync_ads.py</code>
+copies the ads that changed out of here into the environment.</td></tr>
+<tr><td><code>tools/.venv/</code></td><td>The pinned Playwright install. Machine-specific and
+~400 MB.</td></tr>
+<tr><td><code>admin/worker/.dev.vars</code></td><td><strong>Secrets</strong> for local Worker
+development. Never commit this.</td></tr>
+<tr><td><code>admin/worker/.wrangler/</code></td><td>Wrangler's local state and cache.</td></tr>
+<tr><td><code>.claude/launch.json</code></td><td>Local dev-server definitions, personal to the
+machine.</td></tr>
+<tr><td><code>__pycache__/</code>, <code>.DS_Store</code>, <code>node_modules/</code></td>
+<td>The usual.</td></tr>
+</tbody></table></div>
+
+<div class="cal warn"><b>Generated files that ARE committed</b>
+<p><code>&lt;env&gt;/ads/svg/</code> and <code>&lt;env&gt;/ads/jpg/</code> are generated, but they
+are committed on purpose. It means a build does not need Chromium unless something actually
+changed, and it means the exact image the public saw on any date is recoverable from git. CI
+commits them back itself, as <code>github-actions[bot]</code>, with the message
+<em>"Re-render ads for &lt;envs&gt;"</em>.</p></div>
+
+<div class="cal stop"><b>README.md and SKILLS.md are partly out of date</b>
+<p>Both were written when the site was driven by dropping image files into
+<code>ads/jpg/</code> and naming them <code>&lt;id&gt;_&lt;format&gt;.jpg</code>, with
+<code>cars.json</code> supplying display names. That still technically works, but it is no
+longer how anything is done: items come from manifests, and the admin writes them. They also
+describe a landing page linking to all three environments, which was deliberately removed so
+a client never sees environment wording. <strong>Where they disagree with this book, this book
+is right.</strong></p></div>
+</section>
+<section id="model">
+<p class="eyebrow">Chapter 4</p>
+<h2>The data model</h2>
+<p class="lead">Four kinds of file, three of which a human ever writes. Everything the site
+shows is derived from them.</p>
+
+<h3>An item — one product</h3>
+<p>Path: <code>&lt;env&gt;/manifests/items/&lt;category&gt;/&lt;slug&gt;.json</code>. The folder it
+sits in is its category, and the file name is its slug, which becomes its URL.</p>
+<div class="cw"><pre><code>{
+  "schema": 1,
+  "slug": "santafe",
+  "catalogue": "vehicles",
+  "status": "published",
+  "order": 1,
+  "make": "Hyundai",
+  "model": "Santa Fe Sport",
+  "year": "2017",
+  "subtitle": "2.4L · Heated Seats",
+  "price": "14,000",
+  "eyebrow": "Pre-Owned",
+  "kicker": null,
+  "specs": [
+    { "label": "KM",         "value": "107,000" },
+    { "label": "Engine",     "value": "2.4L" },
+    { "label": "Drivetrain", "value": "FWD" }
+  ],
+  "images": [
+    { "file": "source-photos/vehicles/santafe/1.jpg", "role": "primary" }
+  ],
+  "background": "source-photos/vehicles/santafe/blur.jpg",
+  "audit": { "updated_at": "2026-10-18T14:02:11.004Z" }
+}</code></pre></div>
+<p><code>images[].file</code> is relative to the <em>environment root</em>, not to the manifest.
+Exactly three <code>specs</code> are drawn on the ad — the three columns across its middle — and
+the labels come from the item's category.</p>
+
+<h3>A category</h3>
+<p>Path: <code>&lt;env&gt;/manifests/catalogues/&lt;slug&gt;.json</code>. Note the folder is spelled
+<em>catalogues</em> — the word the code uses internally — while the admin says
+<em>category</em> to the dealer. They are the same thing.</p>
+<div class="cw"><pre><code>{
+  "schema": 1,
+  "slug": "vehicles",
+  "status": "public",
+  "label": "Vehicles",
+  "mark": "VE",
+  "order": 1,
+  "in_menu": true,
+  "heading": "The Lineup",
+  "lede": "Pre-owned vehicles for Ottawa drivers, priced to move.",
+  "spec_slots": [
+    { "label": "KM" }, { "label": "Engine" }, { "label": "Drivetrain" }
+  ]
+}</code></pre></div>
+
+<h3>Source photos</h3>
+<p>Path: <code>&lt;env&gt;/source-photos/&lt;category&gt;/&lt;slug&gt;/1.jpg</code>, numbered upward.
+The admin resizes every upload to 1600px on its long edge in the browser before it is ever
+sent, because the generator never composites above 1920px and a 12-megapixel phone original is
+wasted bytes in a commit.</p>
+<p><code>blur.jpg</code>, if present, is a small heavily downscaled copy used as the
+frame-filling backdrop behind the car. Without one the first photo stands in — it is blurred
+and veiled anyway, so the difference is file size, not appearance.</p>
+
+<h3>Generated ads</h3>
+<p>Paths: <code>&lt;env&gt;/ads/svg/&lt;slug&gt;_&lt;format&gt;.svg</code> and
+<code>&lt;env&gt;/ads/jpg/&lt;slug&gt;_&lt;format&gt;.jpg</code>. Three formats per item:</p>
+<div class="scroll"><table>
+<thead><tr><th>Format</th><th>Pixels</th><th>Ratio</th><th>Shown to</th></tr></thead>
+<tbody>
+<tr><td><code>phone</code></td><td class="num-col">1080 × 2340</td><td>9:19.5</td><td>Viewports under 560px</td></tr>
+<tr><td><code>social</code></td><td class="num-col">1080 × 1350</td><td>4:5</td><td>560px and up</td></tr>
+<tr><td><code>landscape</code></td><td class="num-col">1920 × 1080</td><td>16:9</td><td>900px and up</td></tr>
+</tbody></table></div>
+<p>The item page picks one with a <code>&lt;picture&gt;</code> element, so a phone downloads only
+the phone ad. All three, plus their SVGs, are also bundled into
+<code>&lt;slug&gt;-ads.zip</code> for the dealer to download and post elsewhere.</p>
+
+<div class="cal"><b>The images are the source of truth for their own text</b>
+<p>Year and price shown in the surrounding HTML are <em>parsed back out of the SVG</em> by
+<code>ad_facts()</code> in <code>build.py</code>. The price is never written into the page from
+the manifest separately. One number, one place, no chance of the page and the picture
+disagreeing.</p></div>
+
+<h3>cars.json — legacy</h3>
+<p>Each environment still has one. It predates manifests and could override a display name,
+subtitle, order, year or price. Nothing writes it any more and you can ignore it; it is kept
+because removing it is a change with no benefit.</p>
+</section>
+
+
+<section id="categories">
+<p class="eyebrow">Chapter 5</p>
+<h2>Categories &amp; routes</h2>
+<p class="lead">A category is a group of things you sell. It gets its own page, its own URL and
+its own three spec labels. One category is special.</p>
+
+<h3>Vehicles is the default, and has no route of its own</h3>
+<p><code>vehicles</code> <em>is</em> the environment. Its board is the environment's index page
+and its items sit under <code>cars/</code>. There is deliberately no <code>/vehicles/</code>
+URL. Every other category lives in a folder named after its slug, with its board and its item
+pages together.</p>
+
+<div class="scroll"><table>
+<thead><tr><th>Category</th><th>Board</th><th>Item page</th><th>Zip</th></tr></thead>
+<tbody>
+<tr><td><code>vehicles</code> <span class="chip acc">default</span></td>
+<td><code>&lt;env&gt;/index.html</code></td>
+<td><code>&lt;env&gt;/cars/&lt;slug&gt;.html</code></td>
+<td><code>&lt;env&gt;/cars/&lt;slug&gt;-ads.zip</code></td></tr>
+<tr><td>any other, e.g. <code>tyres</code></td>
+<td><code>&lt;env&gt;/tyres/index.html</code></td>
+<td><code>&lt;env&gt;/tyres/&lt;slug&gt;.html</code></td>
+<td><code>&lt;env&gt;/tyres/&lt;slug&gt;-ads.zip</code></td></tr>
+</tbody></table></div>
+
+<p>Both item folders sit exactly one level under the environment root, which is why ad images
+are <code>../ads/jpg/…</code> from every item page and no stylesheet path had to change when
+categories were introduced.</p>
+
+<div class="cal ok"><b>Why vehicles has no route</b>
+<p>So that none of today's URLs moved. A link to
+<code>/automotive-studio/cars/sienna.html</code> that someone sent a buyer in October still
+works. Adding a category must never break the links already in the world.</p></div>
+
+<h3>Reserved names</h3>
+<p>A category cannot take a folder the build already writes at an environment root:
+<code>ads</code>, <code>assets</code>, <code>cars</code>, or any environment name
+(<code>production</code>, <code>review</code>, <code>development</code>). The admin refuses to
+create one; <code>build.py</code> skips it with a warning if it finds one anyway.</p>
+
+<h3>The menu</h3>
+<p>A category is listed in the site's top menu only when all three are true: its status is
+<code>public</code>, its <code>in_menu</code> flag is on, and it has at least one published item
+with a photo.</p>
+<p>And the menu is only drawn at all once <strong>two</strong> categories qualify. One entry is
+not a menu — it is the page you are already standing on. This is why the site today, with only
+Vehicles, carries no menu markup whatsoever and looks exactly as it did before categories
+existed.</p>
+
+<div class="cal info"><b>in_menu is the sitemap flag</b>
+<p>Turning it off leaves a category fully published and reachable by direct link, but out of
+the menu. Useful for a seasonal or wholesale list you want to send to specific people without
+putting it in front of every visitor.</p></div>
+</section>
+
+
+<section id="states">
+<p class="eyebrow">Chapter 6</p>
+<h2>States &amp; lifecycle</h2>
+<p class="lead">Categories have three states. Items have two. The asymmetry is deliberate and
+this chapter explains it, because it is the thing most likely to look like an oversight.</p>
+
+<h3>Category status</h3>
+<div class="scroll"><table>
+<thead><tr><th>Status</th><th>Renders</th><th>In the menu</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code>public</code></td><td>Yes, at its own route</td><td>If <code>in_menu</code> and it has an item</td>
+<td>Live</td></tr>
+<tr><td><code>draft</code></td><td>No</td><td>No</td><td>Not launched yet</td></tr>
+<tr><td><code>retired</code></td><td>No</td><td>No</td><td>We stopped selling this</td></tr>
+</tbody></table></div>
+<p><code>published</code> is the pre-migration spelling of <code>public</code> and is still read
+as public, so a manifest written before the three states existed keeps building.</p>
+<p><code>draft</code> and <code>retired</code> behave <em>identically</em> in the build — both
+render nothing. They are kept apart purely because they read differently to the owner in the
+admin list. Nothing in the build branches on which one it is.</p>
+
+<h3>Item status — two states, not three</h3>
+<p>An item is <code>published</code> or <code>draft</code>. That is the whole vocabulary. The
+single off-the-site state is reached two ways:</p>
+<ul>
+<li><strong>Save as a draft</strong> at creation — written, never on the site.</li>
+<li><strong>Deactivate</strong> an item that was live — same state, reached later.</li>
+</ul>
+<p>The original specification asked for draft, publish <em>and</em> disable as three distinct
+ideas. For a category three states earn their keep, because the owner reads that list as a
+plan. For an item they do not: <code>draft</code> and a hypothetical <code>retired</code> would
+be the same row in <code>build.py</code>, the same row in <code>gen_velocity.py</code>, the same
+affordances in the admin, and the same thing to the dealer — <em>saved here, not on the
+site</em>. A third spelling would mean two words for one behaviour and two code paths that must
+never diverge.</p>
+<div class="cal"><b>If you ever need to know <em>why</em> something is off the site</b>
+<p>Sold, awaiting photos, seasonal — that is a different fact from <em>whether</em> it renders,
+and it belongs in a field of its own, not in the gate that decides rendering.</p></div>
+
+<h3>The rule both renderers agree on</h3>
+<div class="cal ok"><b>An item renders only when</b>
+<p>its <code>status</code> is <code>published</code>, <strong>and</strong> it has at least one
+image, <strong>and</strong> its category's status is <code>public</code>.</p></div>
+<p><code>build.py</code> and <code>tools/gen_velocity.py</code> both enforce this independently.
+If you change it, change it in both, or the site and the ads will disagree about what
+exists.</p>
+
+<h3>The orphan pen</h3>
+<p>Deleting a category must not destroy what it held. In the one commit that removes the
+category manifest, each of its items is rewritten to
+<code>manifests/items/orphan/&lt;slug&gt;.json</code> with <code>catalogue: "orphan"</code>,
+<code>status: "draft"</code>, and <code>audit.orphaned_from</code> recording where it came
+from.</p>
+<p><code>orphan</code> is not a real category. It has no manifest, no route and no menu entry.
+<code>build.py</code> skips it whatever the items' own status says, <code>gen_velocity.py</code>
+renders no ads for it, and the Worker refuses to commit a <em>published</em> item into it. The
+admin shows orphaned items in a tile of their own so they can be given a category again — which
+is an ordinary edit plus an explicit publish.</p>
+
+<figure>
+<svg viewBox="0 0 760 250" role="img" aria-label="Item lifecycle: draft and published, with delete and orphaning.">
+  <rect class="dg-box" x="40" y="40" width="150" height="58" rx="10"/>
+  <text class="dg-tb" x="68" y="66">Draft</text>
+  <text class="dg-s" x="54" y="84">saved, not on the site</text>
+
+  <rect class="dg-accent" x="300" y="40" width="150" height="58" rx="10"/>
+  <text class="dg-tb" x="320" y="66">Published</text>
+  <text class="dg-s" x="316" y="84">live on the site</text>
+
+  <rect class="dg-rev" x="560" y="40" width="160" height="58" rx="10"/>
+  <text class="dg-tb" x="590" y="66">Orphan</text>
+  <text class="dg-s" x="576" y="84">category was deleted</text>
+
+  <rect class="dg-box" x="300" y="170" width="150" height="50" rx="10" stroke-dasharray="5 4"/>
+  <text class="dg-tb" x="330" y="194">Deleted</text>
+  <text class="dg-s" x="316" y="211">files gone for good</text>
+
+  <path class="dg-la" d="M190 58 L300 58" marker-end="url(#ar2)"/>
+  <text class="dg-s" x="206" y="51">Publish</text>
+  <path class="dg-la" d="M300 84 L190 84" marker-end="url(#ar2)"/>
+  <text class="dg-s" x="200" y="100">Deactivate</text>
+
+  <path class="dg-l dg-dash" d="M450 69 L560 69" marker-end="url(#ar2d)"/>
+  <text class="dg-s" x="462" y="61">category deleted</text>
+  <path class="dg-l dg-dash" d="M560 88 L452 88" marker-end="url(#ar2d)"/>
+  <text class="dg-s" x="470" y="104">reassign + publish</text>
+
+  <path class="dg-l dg-dash" d="M375 98 L375 170" marker-end="url(#ar2d)"/>
+  <text class="dg-s" x="382" y="138">Delete</text>
+  <path class="dg-l dg-dash" d="M115 98 Q115 195 300 195" marker-end="url(#ar2d)"/>
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--acc)"/></marker>
+    <marker id="ar2d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--dim)"/></marker>
+  </defs>
+</svg>
+<figcaption>Deactivating is always reversible. Deleting an item is not. Deleting a category is,
+because its items go to the orphan pen rather than with it.</figcaption>
+</figure>
+</section>
+
+
+<section id="pipeline">
+<p class="eyebrow">Chapter 7</p>
+<h2>The publish pipeline</h2>
+<p class="lead">What happens between the dealer pressing Publish and a buyer seeing the car.
+Roughly sixty seconds, with five distinct actors.</p>
+
+<figure>
+<svg viewBox="0 0 800 560" role="img" aria-label="Sequence diagram of publishing an item.">
+  <!-- lifelines -->
+  <g>
+    <rect class="dg-dev" x="10" y="12" width="118" height="38" rx="8"/>
+    <text class="dg-tb" x="34" y="36">Dealer</text>
+    <path class="dg-l dg-dash" d="M69 50 L69 540"/>
+
+    <rect class="dg-dev" x="150" y="12" width="118" height="38" rx="8"/>
+    <text class="dg-tb" x="176" y="36">Worker</text>
+    <path class="dg-l dg-dash" d="M209 50 L209 540"/>
+
+    <rect class="dg-accent" x="300" y="12" width="118" height="38" rx="8"/>
+    <text class="dg-tb" x="330" y="36">GitHub</text>
+    <path class="dg-l dg-dash" d="M359 50 L359 540"/>
+
+    <rect class="dg-accent" x="450" y="12" width="140" height="38" rx="8"/>
+    <text class="dg-tb" x="470" y="36">Actions</text>
+    <path class="dg-l dg-dash" d="M520 50 L520 540"/>
+
+    <rect class="dg-accent" x="630" y="12" width="150" height="38" rx="8"/>
+    <text class="dg-tb" x="658" y="36">Pages</text>
+    <path class="dg-l dg-dash" d="M705 50 L705 540"/>
+  </g>
+
+  <!-- messages -->
+  <path class="dg-la" d="M69 80 L205 80" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="76" y="74">describe the car in plain English</text>
+
+  <path class="dg-l" d="M209 108 L209 124"/>
+  <text class="dg-s" x="216" y="106">POST /api/plan → Anthropic</text>
+  <path class="dg-la" d="M205 136 L73 136" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="76" y="130">fields filled in, nothing guessed</text>
+
+  <path class="dg-la" d="M69 168 L205 168" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="76" y="162">corrections + photos, then Publish</text>
+
+  <path class="dg-l" d="M209 192 L209 208"/>
+  <text class="dg-s" x="216" y="190">guardrails: image? category? allowlist?</text>
+
+  <path class="dg-la" d="M209 232 L355 232" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="216" y="226">blobs → tree → commit → ref (one commit)</text>
+
+  <path class="dg-la" d="M359 268 L516 268" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="366" y="262">push triggers deploy.yml</text>
+
+  <path class="dg-l" d="M520 292 L520 308"/>
+  <text class="dg-s" x="527" y="290">which environments changed?</text>
+  <path class="dg-l" d="M520 320 L520 336"/>
+  <text class="dg-s" x="527" y="318">gen_velocity.py → SVG</text>
+  <path class="dg-l" d="M520 348 L520 364"/>
+  <text class="dg-s" x="527" y="346">sync_ads.py → render only the diffs</text>
+
+  <path class="dg-la" d="M516 392 L363 392" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="372" y="386">commit the ads back (bot)</text>
+
+  <path class="dg-l" d="M520 420 L520 436"/>
+  <text class="dg-s" x="527" y="418">build.py → _site/</text>
+
+  <path class="dg-la" d="M520 464 L701 464" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="527" y="458">upload artifact + deploy</text>
+
+  <path class="dg-la" d="M701 500 L73 500" marker-end="url(#ar3)"/>
+  <text class="dg-s" x="250" y="494">the car is live · about one minute</text>
+
+  <defs>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--acc)"/></marker>
+  </defs>
+</svg>
+<figcaption>The bot's commit does not start another workflow run — pushes made with
+<code>GITHUB_TOKEN</code> never do — so this cannot loop.</figcaption>
+</figure>
+
+<h3>Why only some pushes re-render</h3>
+<p>The workflow diffs the previous push against this one and re-renders only environments whose
+<code>manifests/</code> or <code>source-photos/</code> changed. Editing <code>build.py</code> or
+this document renders nothing; it just rebuilds and deploys, in about twenty seconds.</p>
+
+<h3>And why only some ads re-render</h3>
+<p>This is worth understanding because it was a real problem for a while. SVG generation is
+deterministic: the same manifest always produces the same bytes. <strong>JPEG rendering is
+not</strong> — headless Chromium loads the Google webfonts a little differently each run, so
+re-rendering an untouched ad yields a JPG that differs by a fraction of a percent.</p>
+<p>Left alone, that meant every manifest edit rewrote all fifteen JPGs in that environment,
+producing noisy commits and binary merge conflicts whenever a local regeneration raced a CI
+one.</p>
+<p>So the SVGs are used as the signal instead. <code>sync_ads.py</code> compares each freshly
+generated SVG against the one committed at <code>&lt;env&gt;/ads/svg/</code>. An ad whose SVG
+matches is left completely alone — not rendered, not copied, byte-for-byte the file already in
+git. Only genuinely changed ads are re-rendered.</p>
+<div class="cal ok"><b>The guarantee</b>
+<p>Running <code>./tools/regen.sh</code> again without changing anything produces an
+<strong>empty diff</strong>. Change one vehicle's price and exactly that vehicle's three SVGs
+and three JPGs change.</p></div>
+<div class="cal warn"><b>The cost</b>
+<p>A <em>revert</em> does not restore a JPG's original bytes: going back changes the SVG back,
+which means a fresh render. Use <code>git checkout &lt;env&gt;/ads</code> to undo an unwanted
+regeneration rather than regenerating your way back.</p></div>
+</section>
+<section id="envmap">
+<p class="eyebrow">Chapter 8</p>
+<h2>Environment map</h2>
+<p class="lead">Three environments, one branch, one Worker. That last part surprises people, so
+it is worth stating up front.</p>
+
+<div class="cal stop"><b>There is only one branch, and only one Worker</b>
+<p>Environments here are <strong>folders</strong>, not branches and not deployments. Everything
+lives on <code>main</code>. One push rebuilds all three sites. One Worker serves the admin, and
+it writes to <code>development</code> only. If you are used to branch-per-environment, unlearn
+that here.</p></div>
+
+<div class="scroll"><table>
+<thead><tr>
+  <th>Environment</th><th>Folder</th><th>Branch</th><th>Public URL</th><th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><span class="chip prod">Production</span></td>
+  <td><code>production/</code></td>
+  <td><code>main</code></td>
+  <td><code>…/automotive-studio/</code> <em>and</em> <code>…/production/</code></td>
+  <td>Approved. What a buyer sees.</td>
+</tr>
+<tr>
+  <td><span class="chip review">Review</span></td>
+  <td><code>review/</code></td>
+  <td><code>main</code></td>
+  <td><code>…/automotive-studio/review/</code></td>
+  <td>Client sign-off. Shared by direct link.</td>
+</tr>
+<tr>
+  <td><span class="chip dev">Development</span></td>
+  <td><code>development/</code></td>
+  <td><code>main</code></td>
+  <td><code>…/automotive-studio/development/</code></td>
+  <td>Work in progress. Where the admin writes.</td>
+</tr>
+</tbody></table></div>
+
+<h3>The root mirrors production</h3>
+<p><code>PUBLIC_ENV</code> in <code>build.py</code> is <code>"production"</code>, and the site
+root is a complete copy of it. A client opening the bare URL never sees an environment name in
+the text or in any path.</p>
+<div class="cal ok"><b>The site never names an environment</b>
+<p>No badges, no labels, no "Production" in a title or a breadcrumb. Every board is just
+"The Lineup". The folder names survive only in URLs and in <code>ENVS</code> in
+<code>build.py</code>. Keep it that way when you add pages — it is a client-facing
+product, and the plumbing is not the client's business.</p></div>
+
+<h3>Services and where they run</h3>
+<div class="scroll"><table>
+<thead><tr><th>Service</th><th>Provider</th><th>Name / identifier</th><th>Covers</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>Static hosting</td><td>GitHub Pages</td><td><code>Cloudstrucc/automotive-studio</code></td>
+<td>All three environments + root</td><td>Free (public repo)</td></tr>
+<tr><td>CI / build</td><td>GitHub Actions</td><td><code>.github/workflows/deploy.yml</code></td>
+<td>Render, build, deploy</td><td>Free (public repo)</td></tr>
+<tr><td>Admin app</td><td>Cloudflare Workers</td><td><code>autoline-write</code></td>
+<td>UI, assistant, commits</td><td>Free — 100k req/day</td></tr>
+<tr><td>Admin auth</td><td>Cloudflare Access (Zero Trust)</td><td>Self-hosted app on the Worker's hostname</td>
+<td>Who may open the admin</td><td>Free — up to 50 users</td></tr>
+<tr><td>Assistant</td><td>Anthropic API</td><td><code>claude-sonnet-5-5</code></td>
+<td><code>POST /api/plan</code> only</td><td>Pay per use</td></tr>
+</tbody></table></div>
+
+<h3>Worker environment variables</h3>
+<p>Non-secret, in <code>admin/worker/wrangler.toml</code>, visible in the repository:</p>
+<div class="scroll"><table>
+<thead><tr><th>Variable</th><th>Value</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>REPO</code></td><td><code>Cloudstrucc/automotive-studio</code></td><td>Where commits go</td></tr>
+<tr><td><code>BRANCH</code></td><td><code>main</code></td><td>Which ref is updated</td></tr>
+<tr><td><code>ALLOW_PREFIXES</code></td><td><code>manifests/,source-photos/,development/</code></td>
+<td>The write allowlist — the real safety boundary</td></tr>
+</tbody></table></div>
+
+<h3>Worker secrets</h3>
+<p>Set with <code>wrangler secret put</code>, never in the file, never recoverable once set:</p>
+<div class="scroll"><table>
+<thead><tr><th>Secret</th><th>Required</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td><code>GITHUB_TOKEN</code></td><td>Yes</td>
+<td>Fine-grained PAT: one repository, Contents read/write, nothing else</td></tr>
+<tr><td><code>ANTHROPIC_API_KEY</code></td><td>For the assistant</td>
+<td><code>POST /api/plan</code> returns 503 without it; the rest of the admin still works</td></tr>
+<tr><td><code>WRITE_KEY</code></td><td>Optional</td>
+<td>Lets scripts call <code>/write</code> from outside Access. Make it long or leave it unset.</td></tr>
+</tbody></table></div>
+<div class="cal warn"><b>The admin only ever writes to development</b>
+<p><code>TARGET_ENV</code> in <code>workspace.html</code> is <code>'development'</code>, and
+<code>ALLOW_PREFIXES</code> backs it up at the Worker. Promotion to review and production is a
+deliberate manual act by you — see the next chapter. The dealer cannot publish straight to the
+live site, by design.</p></div>
+</section>
+
+
+<section id="promotion">
+<p class="eyebrow">Chapter 9</p>
+<h2>Promotion</h2>
+<p class="lead">Moving approved work from development to review, and from review to production.
+Done from your laptop, in git, because it is the one step that should have a human in it.</p>
+
+<p>Promotion means copying two things — the item's manifest and its source photos — then
+re-rendering the target environment so its ads are built from those inputs. You do not copy the
+rendered ads; you regenerate them. That way the target environment is always internally
+consistent.</p>
+
+<ol class="steps">
+<li><b>Check what actually differs</b>
+<div class="cw"><pre><code>cd ~/repos/automotive-studio
+git pull
+
+# which source photos differ between development and production?
+diff -rq development/source-photos production/source-photos
+
+# and which manifests?
+diff -rq development/manifests production/manifests</code></pre></div></li>
+
+<li><b>Copy the item across</b>
+<div class="cw"><pre><code># one item, by slug
+SLUG=sienna
+cp development/manifests/items/vehicles/$SLUG.json review/manifests/items/vehicles/
+mkdir -p review/source-photos/vehicles/$SLUG
+cp development/source-photos/vehicles/$SLUG/* review/source-photos/vehicles/$SLUG/</code></pre></div>
+<p>To promote a whole category, copy its catalogue manifest too:</p>
+<div class="cw"><pre><code>cp development/manifests/catalogues/tyres.json review/manifests/catalogues/</code></pre></div></li>
+
+<li><b>Re-render the target</b>
+<div class="cw"><pre><code>./tools/regen.sh review</code></pre></div>
+<p>Only the ads whose SVG changed are rendered. Expect to see
+<code>review: 3 rendered, 12 unchanged</code> for a single item.</p></li>
+
+<li><b>Look at it before you push</b>
+<div class="cw"><pre><code>python3 build.py
+python3 -m http.server 8787 --directory _site
+# then open http://localhost:8787/review/</code></pre></div></li>
+
+<li><b>Commit and push</b>
+<div class="cw"><pre><code>git add -A
+git commit -m "Promote 2016 Toyota Sienna to review"
+git push</code></pre></div>
+<p>Live in about a minute. Watch the Actions tab if you want to see it land.</p></li>
+</ol>
+
+<div class="cal info"><b>Production and review should be identical after a full promotion</b>
+<p>Once you have promoted everything, all three environments generate byte-identical SVGs. The
+JPGs will differ slightly between environments — that is the render non-determinism from
+chapter 7, not a content difference. Compare SVGs, not JPGs, when you want to know whether two
+environments really match.</p></div>
+
+<div class="cal warn"><b>Promotion is not automated on purpose</b>
+<p>It would be easy to add a button. It has not been added because the whole value of three
+environments is that something stands between the dealer's keyboard and the live site. If you
+automate it, you have one environment with extra steps.</p></div>
+</section>
+
+
+<section id="github">
+<p class="eyebrow">Chapter 10</p>
+<h2>Administering GitHub</h2>
+<p class="lead">Pages, Actions, permissions and the token. Set once; revisit when the token
+expires.</p>
+
+<h3>Pages</h3>
+<ol class="steps">
+<li><b>Settings → Pages → Build and deployment</b>
+<p>Source must be <strong>GitHub Actions</strong>, not "Deploy from a branch". If it is set to a
+branch, the workflow will run green and nothing will ever change on the site, which is a
+confusing failure.</p></li>
+<li><b>Confirm the URL</b>
+<p><code>https://cloudstrucc.github.io/automotive-studio/</code>. For a user or organisation
+site the path differs; for this project repository the repo name is in the path, and
+<code>build.py</code> writes relative links throughout so it does not need to know.</p></li>
+<li><b>Check .nojekyll exists at the repo root</b>
+<p>Without it, Pages runs Jekyll over the output and silently drops anything in a folder
+starting with an underscore.</p></li>
+</ol>
+
+<h3>Actions permissions</h3>
+<p>The workflow commits re-rendered ads back to the repository, so it needs write access:</p>
+<div class="cw"><pre><code>permissions:
+  contents: write      # the ad regeneration commits its output back
+  pages: write
+  id-token: write</code></pre></div>
+<p>And in <strong>Settings → Actions → General → Workflow permissions</strong>, "Read and write
+permissions" must be allowed. If this is set to read-only, the render step fails at the push
+with a 403.</p>
+
+<h3>The GitHub token for the Worker</h3>
+<p>Create at <a href="https://github.com/settings/personal-access-tokens/new">github.com/settings/personal-access-tokens/new</a>
+— a <strong>fine-grained</strong> token, not a classic one.</p>
+<div class="scroll"><table>
+<thead><tr><th>Setting</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Resource owner</td><td><code>Cloudstrucc</code></td></tr>
+<tr><td>Repository access</td><td><strong>Only select repositories</strong> → <code>automotive-studio</code></td></tr>
+<tr><td>Permissions → Contents</td><td><strong>Read and write</strong></td></tr>
+<tr><td>Everything else</td><td>No access</td></tr>
+<tr><td>Expiration</td><td>90 days — put the renewal in your calendar</td></tr>
+</tbody></table></div>
+<p>Then store it on the Worker:</p>
+<div class="cw"><pre><code>cd admin/worker
+npx wrangler secret put GITHUB_TOKEN</code></pre></div>
+<div class="cal stop"><b>When the token expires the admin stops publishing</b>
+<p>The failure looks like a 401 or 403 from <code>/write</code> in the admin, with the site
+otherwise fine. Rotate the token and run <code>wrangler secret put GITHUB_TOKEN</code> again.
+Nothing else needs changing.</p></div>
+
+<h3>Reading what CI did</h3>
+<div class="cw"><pre><code># recent runs
+gh run list --limit 5
+
+# watch the current one
+gh run watch --exit-status
+
+# why did that one fail?
+gh run view --log-failed</code></pre></div>
+</section>
+
+
+<section id="cloudflare">
+<p class="eyebrow">Chapter 11</p>
+<h2>Administering Cloudflare</h2>
+<p class="lead">One Worker, deployed with Wrangler, with three secrets and an Access policy in
+front of it.</p>
+
+<h3>Prerequisites</h3>
+<ul>
+<li>A Cloudflare account (free plan is enough).</li>
+<li>Node.js on your machine — only to run <code>npx wrangler</code>. Nothing in the project is
+a Node application.</li>
+<li>Signed in: <code>npx wrangler login</code> opens a browser once and stores the credential.</li>
+</ul>
+
+<h3>Deploy</h3>
+<div class="cw"><pre><code>cd admin/worker
+npx wrangler deploy</code></pre></div>
+<p>It prints the bindings it found and the URL it deployed to:</p>
+<div class="cw"><pre><code>Uploaded autoline-write (1.95 sec)
+Deployed autoline-write triggers (0.74 sec)
+  https://autoline-write.cloustrucc.workers.dev
+Current Version ID: 42cb0a6f-6b2c-4b74-9d41-79bd0aac5050</code></pre></div>
+<div class="cal warn"><b>Deploying is separate from pushing</b>
+<p>Committing a change to <code>worker.js</code> or <code>workspace.html</code> does
+<strong>not</strong> deploy it. There is no CI for the Worker. You must run
+<code>npx wrangler deploy</code> yourself, and it is easy to forget after changing the admin
+UI. If the admin looks like it ignored your change, this is almost always why.</p></div>
+
+<h3>Secrets</h3>
+<div class="cw"><pre><code>npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo, Contents: RW
+npx wrangler secret put ANTHROPIC_API_KEY   # for POST /api/plan
+
+# optional, only if scripts need to call /write from outside Access:
+openssl rand -base64 32 | tr -d '\n' | pbcopy && echo "copied to clipboard"
+npx wrangler secret put WRITE_KEY
+
+# see which secrets exist (names only — values are never shown again)
+npx wrangler secret list</code></pre></div>
+<div class="cal stop"><b>Secrets are write-only</b>
+<p>Cloudflare never shows a secret again after you set it. Losing one means setting a new one,
+not recovering the old. If you are not certain <code>WRITE_KEY</code> is a long random value,
+set a new one — a short guessable key on an endpoint that can commit to your repository is the
+worst failure mode in this system.</p></div>
+
+<h3>Useful Wrangler commands</h3>
+<div class="scroll"><table>
+<thead><tr><th>Command</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code>npx wrangler deploy</code></td><td>Upload the current folder as the Worker</td></tr>
+<tr><td><code>npx wrangler dev --local</code></td><td>Run it on localhost against local secrets</td></tr>
+<tr><td><code>npx wrangler tail</code></td><td>Stream live logs from the deployed Worker</td></tr>
+<tr><td><code>npx wrangler deployments list</code></td><td>Deployment history with version IDs</td></tr>
+<tr><td><code>npx wrangler rollback</code></td><td>Go back to a previous version</td></tr>
+<tr><td><code>npx wrangler secret list</code></td><td>Which secrets are set (names only)</td></tr>
+</tbody></table></div>
+
+<h3>If a deploy goes wrong</h3>
+<p><code>npx wrangler rollback</code> restores the previous version immediately. The admin is
+stateless — all state is in the repository — so rolling the Worker back loses nothing. Anything
+already committed stays committed.</p>
+</section>
+
+
+<section id="access">
+<p class="eyebrow">Chapter 12</p>
+<h2>Access &amp; who can sign in</h2>
+<p class="lead">Cloudflare Access authenticates a visitor before the request ever reaches the
+Worker. This is the admin's front door, and it currently has one working key.</p>
+
+<h3>How the gate works</h3>
+<p>There is <strong>no login code in the Worker</strong>. Access sits in front of the whole
+hostname and authenticates first; requests that get through carry a
+<code>Cf-Access-Jwt-Assertion</code> header, which the Worker reads to know who is signed in.</p>
+<p>Writes additionally fail closed on their own: <code>POST /api/plan</code> and
+<code>POST /write</code> return 401 unless the request carries that assertion or a valid
+<code>WRITE_KEY</code>. So a Worker with Access misconfigured leaks the UI, not the ability to
+publish.</p>
+<div class="cal stop"><b>Same-origin is deliberately not accepted as authentication</b>
+<p>An earlier version trusted same-origin requests. Since the page itself is public, every
+visitor is same-origin — that was an open write endpoint for anyone who found the URL. It was
+fixed within minutes, and the lesson is worth keeping: being served by the same host proves
+nothing about who is asking.</p></div>
+
+<h3>Setting the policy up</h3>
+<ol class="steps">
+<li><b>Zero Trust → Access → Applications → Add an application → Self-hosted</b></li>
+<li><b>Domain</b><p><code>autoline-write.cloustrucc.workers.dev</code></p></li>
+<li><b>Policy: Allow</b>
+<p>Action <em>Allow</em>, with an <strong>Include</strong> rule of <em>Emails</em> listing you
+and the dealer.</p></li>
+<li><b>Identity provider</b>
+<p>This is the part that is not finished — see below.</p></li>
+</ol>
+
+<h3 id="otp">The One-time PIN gap</h3>
+<div class="cal warn"><b>Today the dealer cannot sign in</b>
+<p>The only identity provider currently enabled requires a Cloudflare account. The dealer does
+not have one, and sees <em>"Cloudflare sign-in is restricted to members of the account."</em>
+Listing their email in the policy is not enough on its own — they need a way to
+<em>authenticate</em>, and One-time PIN is that way.</p></div>
+<p>To fix it: <strong>Zero Trust → Settings → Authentication → Login methods → Add new →
+One-time PIN</strong>. It needs no configuration; the user receives a code by email.</p>
+<p>Then confirm the application's policy has the dealer's email in an <strong>Include</strong>
+rule. Add One-time PIN under <strong>Require</strong> if you want to force that method
+specifically.</p>
+<div class="cal stop"><b>Do not put One-time PIN in Include without an email restriction</b>
+<p>An Include rule of "One-time PIN" alone means <em>anyone with any email address</em> can get
+a code and sign in. Keep the email list in <strong>Include</strong> and the method in
+<strong>Require</strong>.</p></div>
+
+<h3>Branding the login page</h3>
+<p>Customisation is <strong>account-wide, not per application</strong> — the Cloudflare docs are
+explicit that changing it updates the login page for every Access application on the account.
+Path: <strong>Zero Trust → Reusable components → Custom pages → Access login page</strong>.
+You can set the organisation name, a logo, header and footer text, and a background colour.</p>
+<p>Two genuinely per-application controls do exist: App Launcher customisation, and custom
+block pages. If you only have this one application on the account, the account-wide limitation
+costs you nothing.</p>
+
+<h3>Signing out</h3>
+<p>The admin's profile screen links to <code>/cdn-cgi/access/logout</code>, which is Access's own
+endpoint. The Worker has no session of its own to end.</p>
+</section>
+
+
+<section id="local">
+<p class="eyebrow">Chapter 13</p>
+<h2>Local development</h2>
+<p class="lead">Everything in this project runs on a laptop with no services and no accounts.</p>
+
+<h3>The site</h3>
+<div class="cw"><pre><code>cd ~/repos/automotive-studio
+python3 build.py                                  # writes ./_site
+python3 -m http.server 8787 --directory _site     # then open localhost:8787</code></pre></div>
+<p>No dependencies — <code>build.py</code> is standard library only. Open a file directly with
+<code>file://</code> if you prefer, though the relative asset paths behave better over
+HTTP.</p>
+
+<h3>The ads</h3>
+<div class="cw"><pre><code>./tools/regen.sh                      # render everything into tools/output/, touch no environment
+./tools/regen.sh development          # render and copy into one environment
+./tools/regen.sh review production    # or several</code></pre></div>
+<p>First run takes about a minute while it creates <code>tools/.venv</code> and downloads
+Chromium. After that it is a second or two when nothing changed.</p>
+<div class="cal warn"><b>Do not pip install playwright into your system Python</b>
+<p>That is exactly what <code>regen.sh</code> exists to avoid. The venv keeps the pinned version
+with the project so regeneration does not depend on what happens to be on your
+<code>PATH</code> that day.</p></div>
+
+<h3>The admin Worker</h3>
+<div class="cw"><pre><code>cd admin/worker
+npx wrangler dev --local                          # http://localhost:8787</code></pre></div>
+<p><code>GET /</code> works immediately. <code>/api/plan</code> returns 503 until
+<code>ANTHROPIC_API_KEY</code> is set and <code>/write</code> needs <code>GITHUB_TOKEN</code>; put
+them in <code>admin/worker/.dev.vars</code> — which is gitignored — to exercise them
+locally:</p>
+<div class="cw"><pre><code># admin/worker/.dev.vars   (NEVER commit this file)
+GITHUB_TOKEN="github_pat_…"
+ANTHROPIC_API_KEY="sk-ant-…"</code></pre></div>
+<div class="cal stop"><b>A local Worker with a real token commits to the real repository</b>
+<p><code>wrangler dev</code> is not a sandbox. If <code>GITHUB_TOKEN</code> is set and you press
+Publish, it writes a real commit to <code>main</code> and the real site rebuilds. Use a throwaway
+slug, or leave the token out while you work on the UI.</p></div>
+
+<h3>Testing a deployed Worker</h3>
+<div class="cw"><pre><code>bash admin/worker/test-endpoint.sh https://autoline-write.cloustrucc.workers.dev</code></pre></div>
+<p>Prompts for <code>WRITE_KEY</code> and checks the rejections, the allowlist, path traversal
+and one real write. Note it can only bypass Access if Access is not yet enabled; once it is,
+external calls need a service token.</p>
+</section>
+<section id="publish-item">
+<p class="eyebrow">Chapter 14</p>
+<h2>Publish a product</h2>
+<p class="lead">The whole loop, from opening the admin to seeing the car on the site. This is
+the chapter to hand to the dealer.</p>
+
+<h3>Before you start</h3>
+<ul>
+<li>Photos on the device you are using — a phone works; the admin resizes them for you.</li>
+<li>The facts: year, make, model, price, mileage, engine, drivetrain, trim.</li>
+<li>An Access sign-in that works (chapter 12).</li>
+</ul>
+
+<ol class="steps">
+<li><b>Open the admin and pick a category</b>
+<p>Go to <code>https://autoline-write.cloustrucc.workers.dev</code>. The workspace shows a tile
+per category with a count of what is in it. Press <strong>Vehicles</strong>, then
+<strong>Add vehicle</strong>.</p>
+<p>Creating from inside a category pre-sets the item's category, so you never have to think
+about it.</p></li>
+
+<li><b>Describe it in plain English</b>
+<p>One box. Type what you would say to a customer:</p>
+<div class="cw"><pre><code>2017 Santa Fe Sport, 2.4L, 107,000 km, heated seats, asking 14,000</code></pre></div>
+<p>Press <strong>Show me the plan</strong>. The Worker sends this to Claude, which fills in the
+structured fields and returns them.</p>
+<div class="cal ok"><b>Nothing is guessed</b>
+<p>Anything your description did not cover comes back blank and marked <em>needs you</em>. The
+assistant will not invent a drivetrain or round a price. Blank fields are a prompt, not a
+failure.</p></div></li>
+
+<li><b>Add photos</b>
+<p><strong>Choose photos from this device.</strong> Each is resized to 1600px on its long edge
+in your browser before anything is uploaded. The first photo is the primary one — the one the
+ad is built around. Remove any with the × on its thumbnail.</p>
+<div class="cal warn"><b>At least one photo is required to publish</b>
+<p>The ad is built from the photo; without one there is nothing to show. The Publish button
+stays disabled, and the Worker would refuse the commit even if it did not.</p></div></li>
+
+<li><b>Check the fields</b>
+<p>Every value is editable. Title, subtitle, year, price, badge, and the three spec slots your
+category defines. Three is the ceiling — that is what the ad artwork draws.</p></li>
+
+<li><b>Choose draft or published</b>
+<p><strong>Save as a draft</strong> writes it without putting it on the site. <strong>Publish</strong>
+puts it live on the preview site. A draft can be published later from the category list.</p></li>
+
+<li><b>Publish</b>
+<p>Review the exact files that will be written, then press
+<strong>Publish to the preview site</strong>. One commit lands: the manifest and every photo
+together, never half of it.</p></li>
+
+<li><b>Wait about a minute</b>
+<p>GitHub Actions renders the three ads and rebuilds the site. The confirmation screen gives
+you <strong>View this item</strong> and <strong>Copy its link</strong>.</p></li>
+
+<li><b>Promote when it is approved</b>
+<p>The admin writes to development only. Moving it to review and then production is chapter 9,
+done by the developer.</p></li>
+</ol>
+
+<h3>What actually got written</h3>
+<div class="cw"><pre><code>development/manifests/items/vehicles/santafe.json
+development/source-photos/vehicles/santafe/1.jpg
+development/source-photos/vehicles/santafe/2.jpg</code></pre></div>
+<p>And then, a minute later, committed by CI:</p>
+<div class="cw"><pre><code>development/ads/svg/santafe_phone.svg      development/ads/jpg/santafe_phone.jpg
+development/ads/svg/santafe_social.svg     development/ads/jpg/santafe_social.jpg
+development/ads/svg/santafe_landscape.svg  development/ads/jpg/santafe_landscape.jpg</code></pre></div>
+
+<h3>Limits per publish</h3>
+<div class="scroll"><table>
+<thead><tr><th>Limit</th><th>Value</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Files per request</td><td class="num-col">12</td><td>Keeps one commit small enough to be atomic and fast</td></tr>
+<tr><td>Payload</td><td class="num-col">~8 MB</td><td>Worker request ceiling</td></tr>
+<tr><td>Photo long edge</td><td class="num-col">1600 px</td><td>The generator never composites above 1920px</td></tr>
+</tbody></table></div>
+</section>
+
+
+<section id="edit-item">
+<p class="eyebrow">Chapter 15</p>
+<h2>Edit, deactivate, delete</h2>
+<p class="lead">Everything you can do to a product that already exists, and which of them you
+can undo.</p>
+
+<h3>The category list</h3>
+<p>Open a category and you get a row per item. Each row shows its name, subtitle and price,
+with tags for <em>no photo</em> and <em>deactivated</em>. Pressing the row opens the item for
+editing in place. Each row carries three actions:</p>
+
+<div class="cards">
+<div class="card"><h4>Share</h4><p>Copies that item's public URL to your clipboard, ready to
+paste into a message. It does not open a tab.</p></div>
+<div class="card"><h4>Deactivate / Activate</h4><p>Takes the item off the site, keeping
+everything. Fully reversible.</p></div>
+<div class="card"><h4>Delete</h4><p>Removes the manifest and source photos for good. Asks once;
+cannot be undone from the admin.</p></div>
+</div>
+
+<h3>Editing</h3>
+<p>Press the row. The item opens with its fields filled in. Existing photos are kept unless you
+add new ones — adding any photo replaces the whole set, it does not append. The slug, the
+order and the kicker are preserved, so editing never moves an item or breaks its URL.</p>
+<div class="cal info"><b>An edit keeps the item's current status</b>
+<p>Saving a deactivated item does not quietly put it back on the site. If it was a draft before
+you edited it, it is a draft after. Use Activate to change that deliberately.</p></div>
+
+<h3>Deactivating</h3>
+<p>Writes <code>status: "draft"</code> and changes nothing else. On the next build the item
+disappears from the site. Activating it later brings it back exactly as it was — same photos,
+same fields, same URL.</p>
+<p>The rendered ads are deliberately left in place. CI rebuilds <code>&lt;env&gt;/ads/</code>
+from whatever manifests remain, so they vanish from the site on the next build without the
+admin needing write access to the ads folder at all.</p>
+<div class="cal warn"><b>Activating needs a photo</b>
+<p>The Activate button is disabled for an item with no photo, and the Worker refuses the
+write as well. Add a photo first by editing the item.</p></div>
+
+<h3>Deleting</h3>
+<p>Removes the item's manifest, its source photos and its backdrop in one commit. The rendered
+ads are cleaned up by the next regeneration, because <code>sync_ads.py</code> deletes ads whose
+item is gone.</p>
+<div class="cal stop"><b>Delete is permanent from the admin's point of view</b>
+<p>There is no undo button. It is recoverable from git — <code>git revert</code> the commit —
+but that is a developer action, not something the dealer can do. Prefer Deactivate unless you
+are certain.</p></div>
+</section>
+
+
+<section id="manage-cats">
+<p class="eyebrow">Chapter 16</p>
+<h2>Manage categories</h2>
+<p class="lead">Adding what you sell next, and retiring what you no longer do, without a
+deploy.</p>
+
+<h3>Creating one</h3>
+<ol class="steps">
+<li><b>Workspace → New category</b></li>
+<li><b>Name it</b>
+<p>The slug is derived as you type — "Winter Storage" becomes <code>winter-storage</code>,
+which is the folder and the URL. It is shown under the field so there are no surprises.</p></li>
+<li><b>Heading and blurb</b>
+<p>Both are printed on that category's page. The heading is the big title; the blurb is the
+line under it.</p></li>
+<li><b>Three spec slots</b>
+<p>The three labels every item in this category will use — the three columns drawn across the
+middle of every ad. Vehicles uses KM · Engine · Drivetrain. Three is required, not a
+suggestion.</p></li>
+<li><b>State and menu</b>
+<p>Choose <em>On the site</em>, <em>Draft</em> or <em>Retired</em>, and whether it appears in the
+site's menu. Chapter 6 covers what each means.</p></li>
+<li><b>Create</b>
+<p>One commit writes
+<code>development/manifests/catalogues/&lt;slug&gt;.json</code> and the admin opens the new,
+empty category.</p></li>
+</ol>
+
+<div class="cal info"><b>A new category shows nothing until it has an item</b>
+<p>The menu entry needs at least one published item with a photo, and the menu itself only
+appears once two categories qualify. An empty category is a tile in the admin and nothing on
+the site, which is the right default.</p></div>
+
+<h3>Deleting one</h3>
+<p>Deleting a category never destroys what it held. In a single commit, the category manifest
+is removed and each of its items is rewritten into the orphan pen as a draft, with
+<code>audit.orphaned_from</code> recording where it came from.</p>
+<p>Orphaned items appear in the admin under their own tile. Give one a new category from its
+category dropdown, publish it, and it is back. Deleting an <em>empty</em> category just removes
+its manifest.</p>
+
+<h3>The category dropdown on items</h3>
+<p>Every item has one. Created from inside a category, it is pre-set and you can ignore it.
+Created from anywhere else, it is empty and must be chosen before the item can be published.
+It is also how an orphaned item is reassigned.</p>
+<div class="cal stop"><b>The Worker checks the dropdown agrees with the folder</b>
+<p><code>/write</code> refuses a published item whose <code>catalogue</code> is missing, is
+<code>orphan</code>, or disagrees with the folder its manifest is being written into. A manifest
+and its location can never drift apart.</p></div>
+</section>
+
+
+<section id="regen">
+<p class="eyebrow">Chapter 17</p>
+<h2>Regenerate ads by hand</h2>
+<p class="lead">When you need to change what is <em>printed on</em> an ad rather than what the
+site says around it.</p>
+
+<h3>When you need this</h3>
+<div class="scroll"><table>
+<thead><tr><th>Change</th><th>Where</th><th>Then</th></tr></thead>
+<tbody>
+<tr><td>A price, year or spec</td><td>The item's manifest — or just use the admin</td><td>Regenerate</td></tr>
+<tr><td>Phone number or email</td><td><code>PHONE</code> / <code>EMAIL</code> in <code>tools/gen_velocity.py</code>
+<em>and</em> <code>build.py</code></td><td>Regenerate all three environments</td></tr>
+<tr><td>Ad layout, colours, type</td><td><code>tools/gen_velocity.py</code></td><td>Regenerate all three</td></tr>
+<tr><td>Site layout or copy</td><td><code>build.py</code>, <code>assets/style.css</code></td>
+<td>Nothing — no ads changed</td></tr>
+</tbody></table></div>
+
+<h3>The command</h3>
+<div class="cw"><pre><code>./tools/regen.sh production review development</code></pre></div>
+<p>For each environment it generates the SVGs, compares them with what is committed, renders
+only the ads that differ, copies those in, and deletes ads whose item is gone. It reports what
+it did:</p>
+<div class="cw"><pre><code>==> development: generating svg
+==> development: rendering what changed
+development: 3 rendered, 12 unchanged</code></pre></div>
+
+<h3>Changing the contact details — worked example</h3>
+<ol class="steps">
+<li><b>Edit both constants</b>
+<p><code>PHONE</code> and <code>EMAIL</code> appear at the top of
+<code>tools/gen_velocity.py</code> (printed on the ads) and in <code>build.py</code> (shown on
+the pages). Change both or the ad and the page will disagree.</p></li>
+<li><b>Regenerate everything</b>
+<div class="cw"><pre><code>./tools/regen.sh production review development</code></pre></div>
+<p>This one touches every ad, so expect 45 rendered.</p></li>
+<li><b>Look at one</b>
+<div class="cw"><pre><code>open production/ads/jpg/sienna_landscape.jpg</code></pre></div></li>
+<li><b>Commit and push</b>
+<div class="cw"><pre><code>git add -A && git commit -m "Update the contact details printed on every ad" && git push</code></pre></div></li>
+</ol>
+
+<h3>Adding an item without the admin</h3>
+<p>Write the manifest, put the photos where its <code>images[].file</code> paths point, and
+regenerate. The admin does exactly this; by hand is the same operation.</p>
+<div class="cw"><pre><code>mkdir -p development/source-photos/vehicles/civic
+cp ~/Desktop/civic-front.jpg development/source-photos/vehicles/civic/1.jpg
+
+cat > development/manifests/items/vehicles/civic.json &lt;&lt;'JSON'
+{
+  "schema": 1, "slug": "civic", "catalogue": "vehicles",
+  "status": "published", "order": 6,
+  "make": "Honda", "model": "Civic", "year": "2018",
+  "subtitle": "LX · Sedan", "price": "16,500", "eyebrow": "Pre-Owned",
+  "specs": [
+    { "label": "KM", "value": "88,000" },
+    { "label": "Engine", "value": "2.0L" },
+    { "label": "Drivetrain", "value": "FWD" }
+  ],
+  "images": [{ "file": "source-photos/vehicles/civic/1.jpg", "role": "primary" }]
+}
+JSON
+
+./tools/regen.sh development
+python3 build.py</code></pre></div>
+
+<h3>Undoing a regeneration</h3>
+<div class="cw"><pre><code>git checkout development/ads</code></pre></div>
+<p>Use this rather than reverting the manifest and regenerating again — chapter 7 explains why
+a round trip does not restore the original JPG bytes.</p>
+</section>
+<section id="api">
+<p class="eyebrow">Chapter 18</p>
+<h2>Worker API</h2>
+<p class="lead">Five routes. The page is served by the same Worker that serves the API, which
+is the whole reason this architecture works at all.</p>
+
+<h3><span class="m get">GET</span><code>/</code></h3>
+<p>The workspace page. <code>workspace.html</code> is imported as a string via the
+<code>[[rules]] type = "Text"</code> rule in <code>wrangler.toml</code> and returned as
+HTML. There is no login here — Access gates it, and the page itself is harmless.</p>
+
+<h3><span class="m get">GET</span><code>/api/me</code></h3>
+<p>Decodes the <code>Cf-Access-Jwt-Assertion</code> header and returns who is signed in.</p>
+<div class="cw"><pre><code>{ "ok": true, "email": "fred@example.com", "expires": "2026-11-23T09:00:00Z" }</code></pre></div>
+
+<h3><span class="m get">GET</span><code>/api/items?env=development</code></h3>
+<p>One recursive git-tree call finds every manifest, then their blobs are fetched in parallel.
+Nothing is cached, so the admin always shows what is actually committed.</p>
+<div class="cw"><pre><code>{
+  "ok": true,
+  "env": "development",
+  "count": 5,
+  "catalogues":    { "vehicles": [ { …item…, "_path": "…", "_catalogue": "vehicles" } ] },
+  "catalogueDefs": [ { …category manifest…, "_path": "…" } ]
+}</code></pre></div>
+<p>Fields prefixed with <code>_</code> are added by the Worker and are not part of the stored
+manifest. Strip them before writing a manifest back.</p>
+
+<h3><span class="m post">POST</span><code>/api/plan</code></h3>
+<p>Takes a plain-English description and returns validated plan JSON. Calls Anthropic
+server-side with <code>claude-sonnet-5-5</code>; the API key never reaches the browser. Returns
+503 if <code>ANTHROPIC_API_KEY</code> is not set — the rest of the admin keeps working, you just
+have to type the fields yourself.</p>
+<div class="cw"><pre><code>{
+  "summary": "one sentence describing the change",
+  "fields": {
+    "title": "…", "subtitle": "…", "year": "…",
+    "price": "digits and commas only, no $",
+    "eyebrow": "a short badge like Certified",
+    "specs": [ { "label": "…", "value": "… or null" } ]
+  }
+}</code></pre></div>
+
+<h3><span class="m post">POST</span><code>/write</code></h3>
+<p>Files and deletions in, one commit out, via the GitHub git data API: blobs → tree → commit →
+ref update. Either the whole set lands or none of it does, so the repository is never
+half-updated and the site rebuilds once.</p>
+<div class="cw"><pre><code>{
+  "message": "Add 2018 Honda Civic in development",
+  "files": [
+    { "path": "development/manifests/items/vehicles/civic.json",
+      "contentsBase64": "eyJzY2hlbWEiOjEs…" },
+    { "path": "development/source-photos/vehicles/civic/1.jpg",
+      "contentsBase64": "/9j/4AAQSkZJRgABA…" }
+  ],
+  "deletes": [ "development/manifests/items/vehicles/old.json" ]
+}</code></pre></div>
+
+<h4>Responses</h4>
+<div class="scroll"><table>
+<thead><tr><th>Status</th><th>Meaning</th><th>What to do</th></tr></thead>
+<tbody>
+<tr><td><code>200</code></td><td><code>{ ok: true, commit: "…" }</code></td><td>Done</td></tr>
+<tr><td><code>401</code></td><td>No Access assertion and no valid <code>WRITE_KEY</code></td>
+<td>Sign in, or check Access is configured</td></tr>
+<tr><td><code>403</code></td><td>A path is outside <code>ALLOW_PREFIXES</code></td>
+<td>The allowlist is doing its job; do not widen it casually</td></tr>
+<tr><td><code>422</code></td><td>A guardrail refused the content</td>
+<td>Read the message — missing image, wrong category, bad JSON</td></tr>
+<tr><td><code>502</code></td><td>GitHub rejected the commit</td>
+<td>Usually an expired token; rotate it</td></tr>
+</tbody></table></div>
+
+<h3>Auth, precisely</h3>
+<div class="cw"><pre><code>const viaAccess = !!request.headers.get('cf-access-jwt-assertion');
+const viaKey    = env.WRITE_KEY &amp;&amp; timingSafeEqual(auth, `Bearer ${env.WRITE_KEY}`);
+if (!viaAccess &amp;&amp; !viaKey) return json({ error: 'unauthorized' }, 401);</code></pre></div>
+<p>Fail-closed, and same-origin is not in that expression on purpose.</p>
+</section>
+
+
+<section id="manifest-ref">
+<p class="eyebrow">Chapter 19</p>
+<h2>Manifest fields</h2>
+
+<h3>Item</h3>
+<div class="scroll"><table>
+<thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>schema</code></td><td>number</td><td>Yes</td><td>Always <code>1</code></td></tr>
+<tr><td><code>slug</code></td><td>string</td><td>Yes</td><td>Matches the filename; becomes the URL</td></tr>
+<tr><td><code>catalogue</code></td><td>string</td><td>Yes</td><td>Must match the containing folder</td></tr>
+<tr><td><code>status</code></td><td><code>published</code> | <code>draft</code></td><td>Yes</td>
+<td>Only <code>published</code> renders</td></tr>
+<tr><td><code>order</code></td><td>number</td><td>No</td><td>Display order; defaults to 999</td></tr>
+<tr><td><code>make</code> / <code>model</code></td><td>string</td><td>No</td>
+<td>Drawn as the ad's main title</td></tr>
+<tr><td><code>year</code></td><td>string</td><td>No</td><td>Drawn above the title; parsed back out by the site</td></tr>
+<tr><td><code>subtitle</code></td><td>string</td><td>No</td><td>The line under the title</td></tr>
+<tr><td><code>price</code></td><td>string</td><td>No</td><td>Digits and commas, no <code>$</code> — it is added</td></tr>
+<tr><td><code>eyebrow</code></td><td>string</td><td>No</td><td>Corner badge, e.g. "Pre-Owned"</td></tr>
+<tr><td><code>kicker</code></td><td>string</td><td>No</td><td>Small line under the eyebrow</td></tr>
+<tr><td><code>specs</code></td><td>array</td><td>No</td><td>First three drawn as the three columns</td></tr>
+<tr><td><code>images</code></td><td>array</td><td><strong>Yes to publish</strong></td>
+<td><code>{file, role}</code>; <code>file</code> is relative to the environment root</td></tr>
+<tr><td><code>background</code></td><td>string</td><td>No</td><td>Downscaled backdrop; first photo stands in</td></tr>
+<tr><td><code>audit</code></td><td>object</td><td>No</td><td><code>updated_at</code>, and <code>orphaned_from</code> if orphaned</td></tr>
+</tbody></table></div>
+
+<h3>Category</h3>
+<div class="scroll"><table>
+<thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>schema</code></td><td>number</td><td>Yes</td><td>Always <code>1</code></td></tr>
+<tr><td><code>slug</code></td><td>string</td><td>Yes</td><td>Its folder and its route</td></tr>
+<tr><td><code>status</code></td><td><code>public</code> | <code>draft</code> | <code>retired</code></td>
+<td>Yes</td><td><code>published</code> is read as <code>public</code></td></tr>
+<tr><td><code>label</code></td><td>string</td><td>Yes</td><td>What the admin and the menu call it</td></tr>
+<tr><td><code>mark</code></td><td>string</td><td>No</td><td>Two letters on the admin tile</td></tr>
+<tr><td><code>order</code></td><td>number</td><td>No</td><td>Menu and section order</td></tr>
+<tr><td><code>in_menu</code></td><td>boolean</td><td>No</td><td>Off = reachable by link, not listed</td></tr>
+<tr><td><code>heading</code></td><td>string</td><td>No</td><td>The big title on its page</td></tr>
+<tr><td><code>lede</code></td><td>string</td><td>No</td><td>The line under the heading</td></tr>
+<tr><td><code>spec_slots</code></td><td>array</td><td>Yes</td><td>Exactly three <code>{label}</code></td></tr>
+</tbody></table></div>
+</section>
+
+
+<section id="security">
+<p class="eyebrow">Chapter 20</p>
+<h2>Security model</h2>
+<p class="lead">What stops a leaked credential from becoming a compromised website.</p>
+
+<h3>The path allowlist is the real boundary</h3>
+<div class="cw"><pre><code>ALLOW_PREFIXES = "manifests/,source-photos/,development/"</code></pre></div>
+<p>Nothing outside those prefixes can be written. Even with the Worker's GitHub token in hand,
+an attacker cannot reach <code>.github/workflows/</code>, <code>build.py</code>,
+<code>tools/</code> or <code>assets/</code>. They cannot make the site build something you did
+not write — they can only add or change <em>content</em>, which a glance at the diff reveals.</p>
+<div class="cal stop"><b>Do not widen this to add a feature</b>
+<p>If something needs to write outside these prefixes, that is a signal the feature belongs
+somewhere else — in CI, or in a developer's hands. The allowlist is the one thing standing
+between a content tool and arbitrary code execution on a public site.</p></div>
+
+<h3>Defence in depth</h3>
+<div class="scroll"><table>
+<thead><tr><th>Layer</th><th>Stops</th></tr></thead>
+<tbody>
+<tr><td>Cloudflare Access</td><td>Strangers opening the admin at all</td></tr>
+<tr><td>Fail-closed auth on writes</td><td>A misconfigured Access from becoming an open write endpoint</td></tr>
+<tr><td><code>ALLOW_PREFIXES</code></td><td>Any write reaching code or workflow files</td></tr>
+<tr><td>Path traversal rejection</td><td><code>../</code> escaping the allowlist</td></tr>
+<tr><td>Image guardrail</td><td>A published item with nothing to show</td></tr>
+<tr><td>Category guardrail</td><td>A manifest drifting from its folder, or publishing into the orphan pen</td></tr>
+<tr><td>Fine-grained token</td><td>The blast radius reaching any other repository</td></tr>
+<tr><td>Atomic commits</td><td>A half-written state the site could build from</td></tr>
+</tbody></table></div>
+
+<h3>Secret handling</h3>
+<ul>
+<li>Secrets live only in Cloudflare, set with <code>wrangler secret put</code>, never in the
+repository and never shown again.</li>
+<li><code>.dev.vars</code> is gitignored and must stay that way.</li>
+<li>The Anthropic key is used server-side only; the browser never sees it.</li>
+<li><code>WRITE_KEY</code> is optional. If set, make it 32+ random bytes — it is a bearer token
+that can commit to your repository.</li>
+</ul>
+
+<div class="cal warn"><b>Two incidents worth remembering</b>
+<p><strong>The open endpoint.</strong> The first Worker trusted same-origin requests. The page
+is public, so every visitor qualified — an open write endpoint for roughly four minutes until
+it was spotted and fixed. Hence the rule in chapter 12.</p>
+<p><strong>The HAR file.</strong> A browser export pasted into a chat to debug a 401 contained
+live session cookies for an unrelated service. If you ever share a HAR, scrub it, or share the
+single failing request instead. Treat any HAR as a credential dump until proven otherwise.</p></div>
+
+<h3>Routine hygiene</h3>
+<ul>
+<li>Rotate <code>GITHUB_TOKEN</code> every 90 days; diarise it.</li>
+<li>Review the Access policy's email list when someone leaves.</li>
+<li>Skim <code>git log --author="autoline"</code> occasionally — every admin write is a commit,
+so the audit trail is already there.</li>
+</ul>
+</section>
+
+
+<section id="trouble">
+<p class="eyebrow">Chapter 21</p>
+<h2>Troubleshooting</h2>
+
+<div class="scroll"><table>
+<thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Admin change has no effect</td><td>The Worker was not redeployed</td>
+<td><code>cd admin/worker &amp;&amp; npx wrangler deploy</code></td></tr>
+<tr><td><em>"Cloudflare sign-in is restricted to members of the account"</em></td>
+<td>No One-time PIN identity provider</td><td>Chapter 12 → the One-time PIN gap</td></tr>
+<tr><td><code>401</code> from <code>/write</code></td><td>Access not configured, or session expired</td>
+<td>Reload the admin and sign in again</td></tr>
+<tr><td><code>403</code> from <code>/write</code></td><td>Path outside the allowlist</td>
+<td>Check the path; the allowlist is correct</td></tr>
+<tr><td><code>422 … has no image</code></td><td>Publishing or activating an item with no photo</td>
+<td>Edit it and add one</td></tr>
+<tr><td><code>502</code> from <code>/write</code></td><td>GitHub token expired</td>
+<td>New fine-grained PAT, <code>wrangler secret put GITHUB_TOKEN</code></td></tr>
+<tr><td><code>/api/plan</code> returns 503</td><td><code>ANTHROPIC_API_KEY</code> not set</td>
+<td>Set it, or type the fields by hand</td></tr>
+<tr><td>Published item not on the site</td><td>Its category is not <code>public</code></td>
+<td>Chapter 6 — all three conditions must hold</td></tr>
+<tr><td>Workflow green, site unchanged</td><td>Pages source set to a branch</td>
+<td>Settings → Pages → Source: GitHub Actions</td></tr>
+<tr><td>Render step fails at the push</td><td>Actions workflow permissions read-only</td>
+<td>Settings → Actions → General → Read and write</td></tr>
+<tr><td>Regen rewrites ads you did not touch</td><td>The generator's output genuinely moved</td>
+<td>Diff <code>tools/output/svg/</code> against <code>&lt;env&gt;/ads/svg/</code>; check
+<code>requirements.txt</code> against <code>tools/.venv/bin/pip freeze</code></td></tr>
+<tr><td>Binary merge conflicts on JPGs</td><td>A local regen raced a CI one</td>
+<td><code>git checkout --theirs</code> the ads, or re-run regen after rebasing</td></tr>
+<tr><td>Category missing from the menu</td><td>Only one category qualifies</td>
+<td>Expected — the menu needs two</td></tr>
+<tr><td>A category cannot be created</td><td>Its slug is a reserved route</td>
+<td>Not <code>ads</code>, <code>assets</code>, <code>cars</code>, or an environment name</td></tr>
+</tbody></table></div>
+
+<h3>Where to look</h3>
+<div class="cw"><pre><code>gh run list --limit 5          # did CI run, and did it pass?
+gh run view --log-failed       # why did it fail?
+npx wrangler tail              # live Worker logs, including stack traces
+git log --oneline -20          # what changed, and who by
+git show --stat &lt;sha&gt;          # what did that commit actually touch?</code></pre></div>
+</section>
+
+
+<section id="decisions">
+<p class="eyebrow">Chapter 22</p>
+<h2>Design decisions</h2>
+<p class="lead">Why this is shaped the way it is. The plan documents in <code>docs/</code> are
+the long form; this is what survived contact with reality.</p>
+
+<h3>Why not a real admin application?</h3>
+<p><code>docs/ADMIN_PLATFORM_PLAN.md</code> and <code>docs/ADMIN_APP_PLAN.md</code> planned a
+conventional app: Node, SQLite, sessions, magic links, a job queue. Both were abandoned for the
+same reason — the public site is static and free, and every one of those pieces adds something
+to run, pay for, patch and back up, to manage five vehicles.</p>
+<p>Git already provides the durable store, the audit log, the rollback and the access control.
+Building a database next to it would have meant keeping two sources of truth in sync.</p>
+
+<h3>Why not a published Artifact?</h3>
+<p><code>docs/OPTION_B_PLAN.md</code> is a complete design for the admin as a Claude Artifact.
+It cannot work, and the reason is worth recording because it is not obvious:</p>
+<div class="cw"><pre><code>Content-Security-Policy: connect-src 'self' https://&lt;id&gt;.frame.claudeusercontent.com</code></pre></div>
+<p>An Artifact may talk to itself and nothing else, whatever CORS headers an external endpoint
+returns. No amount of server-side configuration changes that. Serving the page from the same
+origin as the API removes CSP and CORS from the picture entirely — which is exactly what the
+Worker does, and why the page lives inside <code>wrangler.toml</code>'s text rule rather than
+anywhere else.</p>
+
+<h3>Why a Cloudflare Worker?</h3>
+<ul>
+<li>It can serve the page <em>and</em> the API from one origin — the thing the Artifact could not do.</li>
+<li>Secrets stay server-side; the browser never holds the GitHub token or the API key.</li>
+<li>Access gives real authentication with no login code to write or get wrong.</li>
+<li>Free at this scale, and nothing to patch.</li>
+</ul>
+
+<h3>Why categories became repository data</h3>
+<p>They started as a hardcoded array in <code>workspace.html</code>. That meant the dealer could
+not add one without a developer and a deploy, which made "add a category" a support ticket.
+Moving them to manifests made it a commit like everything else — and gave them states, a
+sitemap flag and a safe delete in the process.</p>
+
+<h3>Why the ads are generated rather than uploaded</h3>
+<p>Consistency, and because the dealer is not a designer. Every ad is drawn by the same code,
+so the brand holds without anyone policing it. It also means a global change — a new phone
+number, a layout fix — is one edit and one command, not fifteen trips through Photoshop.</p>
+
+<h3>What the docs/ folder is for now</h3>
+<div class="scroll"><table>
+<thead><tr><th>File</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><code>docs/CATEGORIES.md</code></td><td><span class="chip acc">Current</span> The normative
+reference for routes and status words. Read it before changing either.</td></tr>
+<tr><td><code>docs/ADMIN_PLATFORM_PLAN.md</code></td><td>Historical — the conventional-app plan</td></tr>
+<tr><td><code>docs/ADMIN_APP_PLAN.md</code></td><td>Historical — its v2</td></tr>
+<tr><td><code>docs/AGENT_ADMIN_PLAN.md</code></td><td>Historical — three shapes compared</td></tr>
+<tr><td><code>docs/OPTION_B_PLAN.md</code></td><td>Historical — the Artifact design, killed by CSP</td></tr>
+<tr><td><code>docs/prototype/</code></td><td>Historical — static mockups from before the build</td></tr>
+</tbody></table></div>
+<div class="cal info"><b>Keep them</b>
+<p>They are not clutter — they record why three plausible approaches were not taken, which is
+the expensive knowledge. This book is where to start; they are where to go when you want to
+reopen a decision.</p></div>
+</section>
+
+
+<section id="glossary">
+<p class="eyebrow">Chapter 23</p>
+<h2>Glossary</h2>
+<div class="scroll"><table>
+<thead><tr><th>Term</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><strong>Ad</strong></td><td>A generated image — phone, social or landscape — with the
+car and its facts drawn on it</td></tr>
+<tr><td><strong>App mode</strong></td><td>How every environment is built: one responsive item
+page per product rather than a gallery of every format</td></tr>
+<tr><td><strong>Catalogue</strong></td><td>What the code calls a category. Same thing.</td></tr>
+<tr><td><strong>Category</strong></td><td>A group of products with its own page, route and three
+spec labels</td></tr>
+<tr><td><strong>Environment</strong></td><td>A top-level folder — production, review or
+development — holding a complete independent copy of the content</td></tr>
+<tr><td><strong>Item</strong></td><td>One product. A vehicle, a tyre set, a service.</td></tr>
+<tr><td><strong>Manifest</strong></td><td>The JSON file that defines an item or a category</td></tr>
+<tr><td><strong>Orphan pen</strong></td><td><code>manifests/items/orphan/</code>, where items go
+when their category is deleted. Never renders.</td></tr>
+<tr><td><strong>Slug</strong></td><td>The lowercase hyphenated id — the filename and the URL</td></tr>
+<tr><td><strong>Source photo</strong></td><td>What the dealer uploaded, before any ad is drawn
+from it</td></tr>
+<tr><td><strong>Spec slot</strong></td><td>One of a category's three labels, drawn as a column on
+every ad in it</td></tr>
+<tr><td><strong>Velocity</strong></td><td>The design direction: dark stage, electric green
+<code>#19e36a</code>, Archivo display, Inter body</td></tr>
+<tr><td><strong>Worker</strong></td><td>The Cloudflare serverless function that is the entire
+admin backend</td></tr>
+<tr><td><strong>Wrangler</strong></td><td>Cloudflare's CLI for deploying and configuring Workers.
+Not a framework.</td></tr>
+</tbody></table></div>
+
+<hr>
+<p class="lead" style="margin-bottom:6px">Where to go next</p>
+<div class="toc-mini">
+<a href="#publish-item">Publishing a product →</a>
+<a href="#promotion">Promoting to production →</a>
+<a href="#access">Letting the dealer sign in →</a>
+<a href="#trouble">Something is broken →</a>
+</div>
+<p style="color:var(--dim);font-size:13px;margin-top:24px">
+Autoline Build Book · generated for <code>Cloudstrucc/automotive-studio</code> ·
+revision 2026-11-22. Where this disagrees with <code>README.md</code> or
+<code>SKILLS.md</code>, this document is current.</p>
+</section>
+</main>
+</div>
+
+<script>
+/* Theme toggle. Two explicit states; the document ships dark, matching the platform. */
+(function(){
+  var root=document.documentElement,btn=document.getElementById('tsw');
+  if(!btn)return;
+  function cur(){return root.dataset.theme||'dark'}
+  function paint(){var d=cur()==='dark';
+    btn.textContent=d?'Light':'Dark';
+    btn.setAttribute('aria-pressed',String(d));
+    btn.setAttribute('aria-label',d?'Switch to light theme':'Switch to dark theme');}
+  paint();
+  btn.addEventListener('click',function(){
+    var n=cur()==='dark'?'light':'dark';
+    root.dataset.theme=n;
+    try{localStorage.setItem('autoline-book-theme',n)}catch(e){}
+    paint();});
+})();
+
+/* Copy buttons on every code block. */
+(function(){
+  document.querySelectorAll('.cw').forEach(function(w){
+    var pre=w.querySelector('pre'); if(!pre)return;
+    var b=document.createElement('button');
+    b.className='cp'; b.type='button'; b.textContent='Copy';
+    b.addEventListener('click',function(){
+      var t=pre.innerText;
+      function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1400)}
+      function select(){
+        var r=document.createRange();r.selectNodeContents(pre);
+        var s=getSelection();s.removeAllRanges();s.addRange(r);
+        b.textContent='Selected';setTimeout(function(){b.textContent='Copy'},1400);
+      }
+      /* execCommand first: it runs inside this click, so it works where the async
+         clipboard API is still waiting on a permission the reader has not granted. */
+      try{
+        var ta=document.createElement('textarea');
+        ta.value=t; ta.setAttribute('readonly','');
+        ta.style.cssText='position:fixed;top:-1000px;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        var ok=document.execCommand('copy'); ta.remove();
+        if(ok){done();return}
+      }catch(e){}
+      try{navigator.clipboard.writeText(t).then(done,select)}catch(e){select()}
+    });
+    w.appendChild(b);
+  });
+})();
+
+/* Scrollspy on the rail. */
+(function(){
+  var links=[].slice.call(document.querySelectorAll('nav.rail a[href^="#"]'));
+  var map={}; links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
+  var secs=[].slice.call(document.querySelectorAll('section[id]'));
+  if(!secs.length||!('IntersectionObserver' in window))return;
+  var seen={};
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){seen[e.target.id]=e.isIntersecting});
+    var first=secs.filter(function(s){return seen[s.id]})[0];
+    if(!first)return;
+    links.forEach(function(a){a.classList.remove('on')});
+    if(map[first.id]){
+      map[first.id].classList.add('on');
+      try{history.replaceState(null,'','#'+first.id)}catch(e){}
+    }
+  },{rootMargin:'-8% 0px -72% 0px',threshold:0});
+  secs.forEach(function(s){io.observe(s)});
+})();
+
+/* Contents button on narrow screens. */
+(function(){
+  var b=document.getElementById('burger'),r=document.getElementById('rail');
+  if(!b||!r)return;
+  b.addEventListener('click',function(){
+    var open=r.classList.toggle('open');
+    b.setAttribute('aria-expanded',String(open));
+  });
+  r.addEventListener('click',function(e){
+    if(e.target.tagName==='A'){r.classList.remove('open');b.setAttribute('aria-expanded','false')}
+  });
+})();
+</script>
+
+</body></html>

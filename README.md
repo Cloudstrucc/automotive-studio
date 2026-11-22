@@ -1,5 +1,14 @@
 # Autoline — Vehicle Ad Portal
 
+> **Start with [`BUILD_BOOK.html`](BUILD_BOOK.html)** — open it in a browser. It is the current
+> developer and configuration guide: architecture, environments, GitHub and Cloudflare
+> administration, and end-to-end usage of the admin app.
+>
+> This README predates the admin app and the manifest-driven content model. Vehicles now come
+> from `<env>/manifests/items/`, not from image filenames and `cars.json`, and there is no
+> landing page linking the three environments. **Where the two disagree, the build book is
+> right.**
+
 A self-updating GitHub Pages site for pre-owned vehicle ads (Velocity design direction).
 Drop image files into a folder, push, and the site rebuilds itself — no code changes needed.
 
