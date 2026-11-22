@@ -2,6 +2,11 @@
 
 Project memory for Claude Code. Read this first when working in this repo.
 
+**`BUILD_BOOK.html` at the repo root is the full developer and configuration guide** — 23
+chapters covering architecture, environments, administration and usage. This file is the
+short form; the build book is the long one. `README.md` and `SKILLS.md` predate the admin
+app and are partly superseded.
+
 ## What this repo is
 A self-building GitHub Pages site that publishes pre-owned vehicle ads (the **Velocity** design
 direction) across **three environments** from a single repo. A GitHub Actions workflow rebuilds and
@@ -83,7 +88,9 @@ and each vehicle page. Phone/email live as constants in `build.py` and `tools/ge
   to that env's `cars.json`, commit & push.
 - **Update a vehicle:** replace its image files, commit & push.
 - **Remove a sold vehicle:** delete its files from `ads/jpg/` (and `ads/svg/`), commit & push.
-- **Promote:** copy a vehicle's files from `development/` → `review/` → `production/`.
+- **Promote:** **Workspace → Promote** in the admin. `POST /api/promote` copies manifests and
+  source photos between environments by referencing existing blob SHAs — no upload — and CI
+  re-renders the target. Rendered ads are never copied. By hand it is still copy + `regen.sh`.
 - **Change what's printed on an ad** (price, km, contact): use `tools/` — see `tools/README.md`.
   Edit the item's manifest (or `PHONE`/`EMAIL` in `tools/gen_velocity.py`) and run
   `./tools/regen.sh <env>…`. Only the ads whose generated SVG actually changed are re-rendered

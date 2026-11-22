@@ -263,7 +263,7 @@ dealer uses to run it. The storefront is a static site with no server and no dat
 admin is a single Cloudflare Worker. Between them sits one GitHub repository, which is the
 only database either of them has.</p>
 
-<p>Two things are worth fixing in your mind before anything else, because every other decision
+<p>Two things are worth establishing before anything else, because every other decision
 in this book follows from them.</p>
 
 <h3>The repository is the database</h3>
@@ -432,9 +432,9 @@ what any admin credential can reach.</figcaption>
 <thead><tr><th>Part</th><th>Technology</th><th>Job</th><th>Where it runs</th></tr></thead>
 <tbody>
 <tr><td><code>build.py</code></td><td>Python 3, standard library only</td>
-<td>Turns manifests + rendered ads into a static site</td><td>GitHub Actions, and your laptop</td></tr>
+<td>Turns manifests + rendered ads into a static site</td><td>GitHub Actions, and a developer machine</td></tr>
 <tr><td><code>tools/</code></td><td>Python + Playwright + Chromium</td>
-<td>Draws the ad SVGs and renders them to JPG</td><td>GitHub Actions, and your laptop</td></tr>
+<td>Draws the ad SVGs and renders them to JPG</td><td>GitHub Actions, and a developer machine</td></tr>
 <tr><td><code>admin/worker/</code></td><td>JavaScript on Cloudflare Workers</td>
 <td>Serves the admin UI, calls Anthropic, commits to GitHub</td><td>Cloudflare's edge</td></tr>
 <tr><td><code>deploy.yml</code></td><td>GitHub Actions</td>
@@ -446,8 +446,8 @@ what any admin credential can reach.</figcaption>
 build cannot break because a package moved. Playwright is needed only to <em>render</em> ads,
 which happens only when a manifest or photo changed — most pushes skip it entirely.</p></div>
 
-<h3>So what is Wrangler?</h3>
-<p>You asked, and it is worth answering plainly because the name suggests more than it is.</p>
+<h3>What Wrangler is</h3>
+<p>Worth stating plainly, because the name suggests more than it is.</p>
 <p><strong>Wrangler is Cloudflare's command-line tool for Workers.</strong> It is not a web
 framework, it is not what the site is built with, and it has nothing to do with GitHub Pages.
 It does exactly two things in this project:</p>
@@ -643,7 +643,7 @@ disagreeing.</p></div>
 
 <h3>cars.json — legacy</h3>
 <p>Each environment still has one. It predates manifests and could override a display name,
-subtitle, order, year or price. Nothing writes it any more and you can ignore it; it is kept
+subtitle, order, year or price. Nothing writes it any more and it can be ignored; it is kept
 because removing it is a change with no benefit.</p>
 </section>
 
@@ -651,7 +651,7 @@ because removing it is a change with no benefit.</p>
 <section id="categories">
 <p class="eyebrow">Chapter 5</p>
 <h2>Categories &amp; routes</h2>
-<p class="lead">A category is a group of things you sell. It gets its own page, its own URL and
+<p class="lead">A category is a group of things the dealer sells. It gets its own page, its own URL and
 its own three spec labels. One category is special.</p>
 
 <h3>Vehicles is the default, and has no route of its own</h3>
@@ -693,13 +693,13 @@ create one; <code>build.py</code> skips it with a warning if it finds one anyway
 <code>public</code>, its <code>in_menu</code> flag is on, and it has at least one published item
 with a photo.</p>
 <p>And the menu is only drawn at all once <strong>two</strong> categories qualify. One entry is
-not a menu — it is the page you are already standing on. This is why the site today, with only
+not a menu — it is the page already on screen. This is why the site today, with only
 Vehicles, carries no menu markup whatsoever and looks exactly as it did before categories
 existed.</p>
 
 <div class="cal info"><b>in_menu is the sitemap flag</b>
 <p>Turning it off leaves a category fully published and reachable by direct link, but out of
-the menu. Useful for a seasonal or wholesale list you want to send to specific people without
+the menu. Useful for a seasonal or wholesale list meant for specific people without
 putting it in front of every visitor.</p></div>
 </section>
 
@@ -739,7 +739,7 @@ be the same row in <code>build.py</code>, the same row in <code>gen_velocity.py<
 affordances in the admin, and the same thing to the dealer — <em>saved here, not on the
 site</em>. A third spelling would mean two words for one behaviour and two code paths that must
 never diverge.</p>
-<div class="cal"><b>If you ever need to know <em>why</em> something is off the site</b>
+<div class="cal"><b>Recording <em>why</em> something is off the site</b>
 <p>Sold, awaiting photos, seasonal — that is a different fact from <em>whether</em> it renders,
 and it belongs in a field of its own, not in the gate that decides rendering.</p></div>
 
@@ -748,7 +748,7 @@ and it belongs in a field of its own, not in the gate that decides rendering.</p
 <p>its <code>status</code> is <code>published</code>, <strong>and</strong> it has at least one
 image, <strong>and</strong> its category's status is <code>public</code>.</p></div>
 <p><code>build.py</code> and <code>tools/gen_velocity.py</code> both enforce this independently.
-If you change it, change it in both, or the site and the ads will disagree about what
+A change to it must be made in both, or the site and the ads will disagree about what
 exists.</p>
 
 <h3>The orphan pen</h3>
@@ -911,7 +911,7 @@ and three JPGs change.</p></div>
 <div class="cal warn"><b>The cost</b>
 <p>A <em>revert</em> does not restore a JPG's original bytes: going back changes the SVG back,
 which means a fresh render. Use <code>git checkout &lt;env&gt;/ads</code> to undo an unwanted
-regeneration rather than regenerating your way back.</p></div>
+regeneration, rather than regenerating back to the previous state.</p></div>
 </section>
 <section id="envmap">
 <p class="eyebrow">Chapter 8</p>
@@ -922,8 +922,8 @@ it is worth stating up front.</p>
 <div class="cal stop"><b>There is only one branch, and only one Worker</b>
 <p>Environments here are <strong>folders</strong>, not branches and not deployments. Everything
 lives on <code>main</code>. One push rebuilds all three sites. One Worker serves the admin, and
-it writes to <code>development</code> only. If you are used to branch-per-environment, unlearn
-that here.</p></div>
+it writes to <code>development</code> only. Branch-per-environment intuitions do not apply
+here.</p></div>
 
 <div class="scroll"><table>
 <thead><tr>
@@ -960,7 +960,7 @@ the text or in any path.</p>
 <div class="cal ok"><b>The site never names an environment</b>
 <p>No badges, no labels, no "Production" in a title or a breadcrumb. Every board is just
 "The Lineup". The folder names survive only in URLs and in <code>ENVS</code> in
-<code>build.py</code>. Keep it that way when you add pages — it is a client-facing
+<code>build.py</code>. New pages must keep it that way — this is a client-facing
 product, and the plumbing is not the client's business.</p></div>
 
 <h3>Services and where they run</h3>
@@ -986,8 +986,9 @@ product, and the plumbing is not the client's business.</p></div>
 <tbody>
 <tr><td><code>REPO</code></td><td><code>Cloudstrucc/automotive-studio</code></td><td>Where commits go</td></tr>
 <tr><td><code>BRANCH</code></td><td><code>main</code></td><td>Which ref is updated</td></tr>
-<tr><td><code>ALLOW_PREFIXES</code></td><td><code>manifests/,source-photos/,development/</code></td>
-<td>The write allowlist — the real safety boundary</td></tr>
+<tr><td><code>ALLOW_PREFIXES</code></td>
+<td><code>development/manifests/,<br>development/source-photos/</code></td>
+<td>The write allowlist for <code>POST /write</code> — the real safety boundary</td></tr>
 </tbody></table></div>
 
 <h3>Worker secrets</h3>
@@ -1002,11 +1003,12 @@ product, and the plumbing is not the client's business.</p></div>
 <tr><td><code>WRITE_KEY</code></td><td>Optional</td>
 <td>Lets scripts call <code>/write</code> from outside Access. Make it long or leave it unset.</td></tr>
 </tbody></table></div>
-<div class="cal warn"><b>The admin only ever writes to development</b>
+<div class="cal warn"><b>Publishing only ever writes to development</b>
 <p><code>TARGET_ENV</code> in <code>workspace.html</code> is <code>'development'</code>, and
-<code>ALLOW_PREFIXES</code> backs it up at the Worker. Promotion to review and production is a
-deliberate manual act by you — see the next chapter. The dealer cannot publish straight to the
-live site, by design.</p></div>
+<code>ALLOW_PREFIXES</code> backs it up at the Worker: the general write endpoint cannot reach
+review or production at all. The only route to them is <strong>Promote</strong>, which is a
+separate, deliberate action with its own endpoint and its own guardrails (chapter 9). Nothing
+the dealer types goes straight to the live site.</p></div>
 </section>
 
 
@@ -1014,60 +1016,102 @@ live site, by design.</p></div>
 <p class="eyebrow">Chapter 9</p>
 <h2>Promotion</h2>
 <p class="lead">Moving approved work from development to review, and from review to production.
-Done from your laptop, in git, because it is the one step that should have a human in it.</p>
+Done from the admin app. No commands, no checkout, nothing to copy by hand.</p>
 
-<p>Promotion means copying two things — the item's manifest and its source photos — then
-re-rendering the target environment so its ads are built from those inputs. You do not copy the
-rendered ads; you regenerate them. That way the target environment is always internally
-consistent.</p>
+<h3>What promotion copies</h3>
+<div class="scroll"><table>
+<thead><tr><th>Copied</th><th>Not copied</th></tr></thead>
+<tbody>
+<tr><td>The item manifest</td><td>Rendered ads (<code>&lt;env&gt;/ads/</code>)</td></tr>
+<tr><td>Every source photo it references</td><td>Items in the orphan pen</td></tr>
+<tr><td>Its backdrop, if it has one</td><td>Anything outside the two environments named</td></tr>
+<tr><td>Its category manifest, if the target lacks it</td><td></td></tr>
+</tbody></table></div>
 
+<div class="cal ok"><b>Ads are re-rendered, never inherited</b>
+<p>The target environment's artwork is always built from the manifests the target itself holds.
+CI re-renders any environment whose <code>manifests/</code> or <code>source-photos/</code>
+changed, so a promotion triggers exactly the render it needs. This is what keeps an environment
+internally consistent instead of carrying images produced somewhere else.</p></div>
+
+<h3>Doing it</h3>
 <ol class="steps">
-<li><b>Check what actually differs</b>
-<div class="cw"><pre><code>cd ~/repos/automotive-studio
-git pull
-
-# which source photos differ between development and production?
-diff -rq development/source-photos production/source-photos
-
-# and which manifests?
-diff -rq development/manifests production/manifests</code></pre></div></li>
-
-<li><b>Copy the item across</b>
-<div class="cw"><pre><code># one item, by slug
-SLUG=sienna
-cp development/manifests/items/vehicles/$SLUG.json review/manifests/items/vehicles/
-mkdir -p review/source-photos/vehicles/$SLUG
-cp development/source-photos/vehicles/$SLUG/* review/source-photos/vehicles/$SLUG/</code></pre></div>
-<p>To promote a whole category, copy its catalogue manifest too:</p>
-<div class="cw"><pre><code>cp development/manifests/catalogues/tyres.json review/manifests/catalogues/</code></pre></div></li>
-
-<li><b>Re-render the target</b>
-<div class="cw"><pre><code>./tools/regen.sh review</code></pre></div>
-<p>Only the ads whose SVG changed are rendered. Expect to see
-<code>review: 3 rendered, 12 unchanged</code> for a single item.</p></li>
-
-<li><b>Look at it before you push</b>
-<div class="cw"><pre><code>python3 build.py
-python3 -m http.server 8787 --directory _site
-# then open http://localhost:8787/review/</code></pre></div></li>
-
-<li><b>Commit and push</b>
-<div class="cw"><pre><code>git add -A
-git commit -m "Promote 2016 Toyota Sienna to review"
-git push</code></pre></div>
-<p>Live in about a minute. Watch the Actions tab if you want to see it land.</p></li>
+<li><b>Workspace → Promote</b>
+<p>The tile sits next to the categories.</p></li>
+<li><b>Choose the target</b>
+<p><strong>Review</strong> for client sign-off, <strong>Production</strong> for the live site.
+Choosing production shows a warning saying so, because it is the one action in the admin that
+changes what buyers see.</p></li>
+<li><b>Choose what to send</b>
+<p>Everything is selected by default, grouped by category. Clear the checkbox on anything that
+should stay behind. The button counts what is selected.</p></li>
+<li><b>Promote</b>
+<p>One commit. The confirmation reports how many items and files moved, and a chip tracks the
+re-render until it reports <em>Live on the site</em>.</p></li>
 </ol>
 
-<div class="cal info"><b>Production and review should be identical after a full promotion</b>
-<p>Once you have promoted everything, all three environments generate byte-identical SVGs. The
-JPGs will differ slightly between environments — that is the render non-determinism from
-chapter 7, not a content difference. Compare SVGs, not JPGs, when you want to know whether two
-environments really match.</p></div>
+<h3>Drafts promote as drafts</h3>
+<p>A draft item is copied across still marked <code>draft</code>, so it does not appear on the
+target until it is published there. This makes it safe to promote a whole environment without
+auditing each item's state first — nothing becomes visible that was not already visible.</p>
 
-<div class="cal warn"><b>Promotion is not automated on purpose</b>
-<p>It would be easy to add a button. It has not been added because the whole value of three
-environments is that something stands between the dealer's keyboard and the live site. If you
-automate it, you have one environment with extra steps.</p></div>
+<h3>Why no bytes move</h3>
+<p>Promotion runs in the Worker, not the browser, and it does not upload anything. Every file it
+copies is already in the repository, so it builds a git tree whose entries point at the
+<em>same blob SHAs</em>. Promoting a vehicle with four photos transfers no image data at all —
+it is a few API calls regardless of how large the photos are.</p>
+
+<div class="cal info"><b>This is also why promotion is not bound by <code>ALLOW_PREFIXES</code></b>
+<p><code>POST /api/promote</code> never accepts a path from its caller. It takes an environment
+name, which must be one of three known values, and a list of slugs, which must match
+<code>^[a-z0-9][a-z0-9-]*$</code>. Every path it writes it constructs itself. That is a tighter
+constraint than a prefix list, which is why adding promotion allowed the general write
+allowlist to be <em>narrowed</em> rather than widened — see chapter 20.</p></div>
+
+<h3>What promotion refuses</h3>
+<div class="scroll"><table>
+<thead><tr><th>Refused</th><th>Status</th><th>Reason</th></tr></thead>
+<tbody>
+<tr><td>A published item with no photo</td><td><code>422</code></td>
+<td>It would render as an empty frame on the target</td></tr>
+<tr><td>An item whose photo is missing from the repository</td><td><code>422</code></td>
+<td>The target would reference a file that is not there</td></tr>
+<tr><td>Same source and target</td><td><code>400</code></td><td>Nothing to do</td></tr>
+<tr><td>An unknown environment name</td><td><code>400</code></td><td>Only the three are accepted</td></tr>
+<tr><td>A slug containing anything but <code>a-z0-9-</code></td><td><code>400</code></td>
+<td>Closes path traversal at the door</td></tr>
+<tr><td>More than 200 files in one commit</td><td><code>413</code></td><td>Promote fewer items at a time</td></tr>
+</tbody></table></div>
+<p>Every refusal happens <strong>before</strong> any commit, so a rejected promotion changes
+nothing. These guardrails are covered by tests — <code>admin/worker/promote.test.mjs</code>,
+run with <code>bash admin/worker/test-promote.sh</code>.</p>
+
+<h3>Promoting by hand</h3>
+<p>Still possible, and occasionally useful — restoring one environment from another, or moving
+something the admin will not touch. The shape is: copy the manifest and the photos, regenerate
+the target, commit.</p>
+<div class="cw"><pre><code>SLUG=sienna
+cp development/manifests/items/vehicles/$SLUG.json review/manifests/items/vehicles/
+mkdir -p review/source-photos/vehicles/$SLUG
+cp development/source-photos/vehicles/$SLUG/* review/source-photos/vehicles/$SLUG/
+
+./tools/regen.sh review          # renders only what changed
+python3 build.py                 # check it locally before pushing
+git add -A && git commit -m "Promote $SLUG to review" && git push</code></pre></div>
+<p>Pushing the manifests alone would also work — CI regenerates the target either way. Running
+<code>regen.sh</code> first simply means the diff under review is the finished one.</p>
+
+<div class="cal info"><b>Comparing two environments</b>
+<p>After a full promotion all three environments generate byte-identical SVGs. Their JPGs will
+still differ slightly — that is the render non-determinism from chapter 7, not a content
+difference. <strong>Compare SVGs, not JPGs</strong>, to find out whether two environments really
+match.</p></div>
+
+<div class="cal warn"><b>Promotion is a decision, not a schedule</b>
+<p>It is deliberately a button someone presses, not an automatic flow from development to
+production. The entire value of three environments is that something stands between the
+dealer's keyboard and the live site. Automating the whole chain would leave one environment
+with extra steps.</p></div>
 </section>
 
 
@@ -1112,7 +1156,7 @@ with a 403.</p>
 <tr><td>Repository access</td><td><strong>Only select repositories</strong> → <code>automotive-studio</code></td></tr>
 <tr><td>Permissions → Contents</td><td><strong>Read and write</strong></td></tr>
 <tr><td>Everything else</td><td>No access</td></tr>
-<tr><td>Expiration</td><td>90 days — put the renewal in your calendar</td></tr>
+<tr><td>Expiration</td><td>90 days — the renewal belongs in a calendar</td></tr>
 </tbody></table></div>
 <p>Then store it on the Worker:</p>
 <div class="cw"><pre><code>cd admin/worker
@@ -1143,7 +1187,7 @@ front of it.</p>
 <h3>Prerequisites</h3>
 <ul>
 <li>A Cloudflare account (free plan is enough).</li>
-<li>Node.js on your machine — only to run <code>npx wrangler</code>. Nothing in the project is
+<li>Node.js on the developer machine — only to run <code>npx wrangler</code>. Nothing in the project is
 a Node application.</li>
 <li>Signed in: <code>npx wrangler login</code> opens a browser once and stores the credential.</li>
 </ul>
@@ -1158,9 +1202,9 @@ Deployed autoline-write triggers (0.74 sec)
 Current Version ID: 42cb0a6f-6b2c-4b74-9d41-79bd0aac5050</code></pre></div>
 <div class="cal warn"><b>Deploying is separate from pushing</b>
 <p>Committing a change to <code>worker.js</code> or <code>workspace.html</code> does
-<strong>not</strong> deploy it. There is no CI for the Worker. You must run
-<code>npx wrangler deploy</code> yourself, and it is easy to forget after changing the admin
-UI. If the admin looks like it ignored your change, this is almost always why.</p></div>
+<strong>not</strong> deploy it. There is no CI for the Worker; <code>npx wrangler deploy</code>
+is a manual step, and an easy one to forget after changing the admin UI. An admin that
+appears to ignore a committed change has almost always not been redeployed.</p></div>
 
 <h3>Secrets</h3>
 <div class="cw"><pre><code>npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo, Contents: RW
@@ -1173,10 +1217,10 @@ npx wrangler secret put WRITE_KEY
 # see which secrets exist (names only — values are never shown again)
 npx wrangler secret list</code></pre></div>
 <div class="cal stop"><b>Secrets are write-only</b>
-<p>Cloudflare never shows a secret again after you set it. Losing one means setting a new one,
-not recovering the old. If you are not certain <code>WRITE_KEY</code> is a long random value,
-set a new one — a short guessable key on an endpoint that can commit to your repository is the
-worst failure mode in this system.</p></div>
+<p>Cloudflare never shows a secret again once it is set. Losing one means setting a new one,
+not recovering the old. Where there is any doubt that <code>WRITE_KEY</code> is a long random
+value, replace it — a short guessable key on an endpoint that can commit to the repository is
+the worst failure mode in this system.</p></div>
 
 <h3>Useful Wrangler commands</h3>
 <div class="scroll"><table>
@@ -1222,8 +1266,8 @@ nothing about who is asking.</p></div>
 <li><b>Zero Trust → Access → Applications → Add an application → Self-hosted</b></li>
 <li><b>Domain</b><p><code>autoline-write.cloustrucc.workers.dev</code></p></li>
 <li><b>Policy: Allow</b>
-<p>Action <em>Allow</em>, with an <strong>Include</strong> rule of <em>Emails</em> listing you
-and the dealer.</p></li>
+<p>Action <em>Allow</em>, with an <strong>Include</strong> rule of <em>Emails</em> listing the
+administrator and the dealer.</p></li>
 <li><b>Identity provider</b>
 <p>This is the part that is not finished — see below.</p></li>
 </ol>
@@ -1237,8 +1281,7 @@ Listing their email in the policy is not enough on its own — they need a way t
 <p>To fix it: <strong>Zero Trust → Settings → Authentication → Login methods → Add new →
 One-time PIN</strong>. It needs no configuration; the user receives a code by email.</p>
 <p>Then confirm the application's policy has the dealer's email in an <strong>Include</strong>
-rule. Add One-time PIN under <strong>Require</strong> if you want to force that method
-specifically.</p>
+rule. Adding One-time PIN under <strong>Require</strong> forces that method specifically.</p>
 <div class="cal stop"><b>Do not put One-time PIN in Include without an email restriction</b>
 <p>An Include rule of "One-time PIN" alone means <em>anyone with any email address</em> can get
 a code and sign in. Keep the email list in <strong>Include</strong> and the method in
@@ -1248,10 +1291,10 @@ a code and sign in. Keep the email list in <strong>Include</strong> and the meth
 <p>Customisation is <strong>account-wide, not per application</strong> — the Cloudflare docs are
 explicit that changing it updates the login page for every Access application on the account.
 Path: <strong>Zero Trust → Reusable components → Custom pages → Access login page</strong>.
-You can set the organisation name, a logo, header and footer text, and a background colour.</p>
+It covers the organisation name, a logo, header and footer text, and a background colour.</p>
 <p>Two genuinely per-application controls do exist: App Launcher customisation, and custom
-block pages. If you only have this one application on the account, the account-wide limitation
-costs you nothing.</p>
+block pages. On an account with only this one application, the account-wide limitation costs
+nothing.</p>
 
 <h3>Signing out</h3>
 <p>The admin's profile screen links to <code>/cdn-cgi/access/logout</code>, which is Access's own
@@ -1269,7 +1312,7 @@ endpoint. The Worker has no session of its own to end.</p>
 python3 build.py                                  # writes ./_site
 python3 -m http.server 8787 --directory _site     # then open localhost:8787</code></pre></div>
 <p>No dependencies — <code>build.py</code> is standard library only. Open a file directly with
-<code>file://</code> if you prefer, though the relative asset paths behave better over
+<code>file://</code> instead, though the relative asset paths behave better over
 HTTP.</p>
 
 <h3>The ads</h3>
@@ -1278,9 +1321,9 @@ HTTP.</p>
 ./tools/regen.sh review production    # or several</code></pre></div>
 <p>First run takes about a minute while it creates <code>tools/.venv</code> and downloads
 Chromium. After that it is a second or two when nothing changed.</p>
-<div class="cal warn"><b>Do not pip install playwright into your system Python</b>
+<div class="cal warn"><b>Playwright does not belong in the system Python</b>
 <p>That is exactly what <code>regen.sh</code> exists to avoid. The venv keeps the pinned version
-with the project so regeneration does not depend on what happens to be on your
+with the project, so regeneration does not depend on what happens to be on the
 <code>PATH</code> that day.</p></div>
 
 <h3>The admin Worker</h3>
@@ -1294,9 +1337,9 @@ locally:</p>
 GITHUB_TOKEN="github_pat_…"
 ANTHROPIC_API_KEY="sk-ant-…"</code></pre></div>
 <div class="cal stop"><b>A local Worker with a real token commits to the real repository</b>
-<p><code>wrangler dev</code> is not a sandbox. If <code>GITHUB_TOKEN</code> is set and you press
-Publish, it writes a real commit to <code>main</code> and the real site rebuilds. Use a throwaway
-slug, or leave the token out while you work on the UI.</p></div>
+<p><code>wrangler dev</code> is not a sandbox. With <code>GITHUB_TOKEN</code> set, pressing
+Publish writes a real commit to <code>main</code> and the real site rebuilds. Use a throwaway
+slug, or leave the token unset while working on the UI.</p></div>
 
 <h3>Testing a deployed Worker</h3>
 <div class="cw"><pre><code>bash admin/worker/test-endpoint.sh https://autoline-write.cloustrucc.workers.dev</code></pre></div>
@@ -1310,9 +1353,9 @@ external calls need a service token.</p>
 <p class="lead">The whole loop, from opening the admin to seeing the car on the site. This is
 the chapter to hand to the dealer.</p>
 
-<h3>Before you start</h3>
+<h3>Before starting</h3>
 <ul>
-<li>Photos on the device you are using — a phone works; the admin resizes them for you.</li>
+<li>Photos on the device in use — a phone works; the admin resizes them.</li>
 <li>The facts: year, make, model, price, mileage, engine, drivetrain, trim.</li>
 <li>An Access sign-in that works (chapter 12).</li>
 </ul>
@@ -1322,29 +1365,29 @@ the chapter to hand to the dealer.</p>
 <p>Go to <code>https://autoline-write.cloustrucc.workers.dev</code>. The workspace shows a tile
 per category with a count of what is in it. Press <strong>Vehicles</strong>, then
 <strong>Add vehicle</strong>.</p>
-<p>Creating from inside a category pre-sets the item's category, so you never have to think
-about it.</p></li>
+<p>Creating from inside a category pre-sets the item's category, so it never has to be chosen
+manually.</p></li>
 
 <li><b>Describe it in plain English</b>
-<p>One box. Type what you would say to a customer:</p>
+<p>One box, filled in the way the vehicle would be described to a customer:</p>
 <div class="cw"><pre><code>2017 Santa Fe Sport, 2.4L, 107,000 km, heated seats, asking 14,000</code></pre></div>
 <p>Press <strong>Show me the plan</strong>. The Worker sends this to Claude, which fills in the
 structured fields and returns them.</p>
 <div class="cal ok"><b>Nothing is guessed</b>
-<p>Anything your description did not cover comes back blank and marked <em>needs you</em>. The
+<p>Anything the description did not cover comes back blank and marked <em>needs you</em>. The
 assistant will not invent a drivetrain or round a price. Blank fields are a prompt, not a
 failure.</p></div></li>
 
 <li><b>Add photos</b>
 <p><strong>Choose photos from this device.</strong> Each is resized to 1600px on its long edge
-in your browser before anything is uploaded. The first photo is the primary one — the one the
+in the browser before anything is uploaded. The first photo is the primary one — the one the
 ad is built around. Remove any with the × on its thumbnail.</p>
 <div class="cal warn"><b>At least one photo is required to publish</b>
 <p>The ad is built from the photo; without one there is nothing to show. The Publish button
 stays disabled, and the Worker would refuse the commit even if it did not.</p></div></li>
 
 <li><b>Check the fields</b>
-<p>Every value is editable. Title, subtitle, year, price, badge, and the three spec slots your
+<p>Every value is editable. Title, subtitle, year, price, badge, and the three spec slots the
 category defines. Three is the ceiling — that is what the ad artwork draws.</p></li>
 
 <li><b>Choose draft or published</b>
@@ -1356,13 +1399,15 @@ puts it live on the preview site. A draft can be published later from the catego
 <strong>Publish to the preview site</strong>. One commit lands: the manifest and every photo
 together, never half of it.</p></li>
 
-<li><b>Wait about a minute</b>
-<p>GitHub Actions renders the three ads and rebuilds the site. The confirmation screen gives
-you <strong>View this item</strong> and <strong>Copy its link</strong>.</p></li>
+<li><b>Watch it land</b>
+<p>GitHub Actions renders the three ads and rebuilds the site. The confirmation screen tracks
+it — <em>Rendering the ads</em>, then <em>Live on the site</em> — and offers
+<strong>View this item</strong> and <strong>Copy its link</strong>. The chip links to the run
+itself if something fails.</p></li>
 
 <li><b>Promote when it is approved</b>
-<p>The admin writes to development only. Moving it to review and then production is chapter 9,
-done by the developer.</p></li>
+<p>Publishing writes to development only. <strong>Workspace → Promote</strong> sends it on to
+review and then production — chapter 9.</p></li>
 </ol>
 
 <h3>What actually got written</h3>
@@ -1388,16 +1433,16 @@ development/ads/svg/santafe_landscape.svg  development/ads/jpg/santafe_landscape
 <section id="edit-item">
 <p class="eyebrow">Chapter 15</p>
 <h2>Edit, deactivate, delete</h2>
-<p class="lead">Everything you can do to a product that already exists, and which of them you
-can undo.</p>
+<p class="lead">Everything that can be done to a product that already exists, and which of those
+actions are reversible.</p>
 
 <h3>The category list</h3>
-<p>Open a category and you get a row per item. Each row shows its name, subtitle and price,
+<p>Opening a category gives a row per item. Each row shows its name, subtitle and price,
 with tags for <em>no photo</em> and <em>deactivated</em>. Pressing the row opens the item for
 editing in place. Each row carries three actions:</p>
 
 <div class="cards">
-<div class="card"><h4>Share</h4><p>Copies that item's public URL to your clipboard, ready to
+<div class="card"><h4>Share</h4><p>Copies that item's public URL to the clipboard, ready to
 paste into a message. It does not open a tab.</p></div>
 <div class="card"><h4>Deactivate / Activate</h4><p>Takes the item off the site, keeping
 everything. Fully reversible.</p></div>
@@ -1406,12 +1451,16 @@ cannot be undone from the admin.</p></div>
 </div>
 
 <h3>Editing</h3>
-<p>Press the row. The item opens with its fields filled in. Existing photos are kept unless you
-add new ones — adding any photo replaces the whole set, it does not append. The slug, the
+<div class="cal ok"><b>Editing an item redraws its ads</b>
+<p>There is nothing to regenerate by hand. Publishing an edit writes the manifest; CI re-renders
+that item's three ads from the new values and rebuilds the site, and the deploy chip reports
+when it has landed. The same is true after a promotion, in the environment it landed in.</p></div>
+<p>Press the row. The item opens with its fields filled in. Existing photos are kept unless new
+ones are added — adding any photo replaces the whole set, it does not append. The slug, the
 order and the kicker are preserved, so editing never moves an item or breaks its URL.</p>
 <div class="cal info"><b>An edit keeps the item's current status</b>
 <p>Saving a deactivated item does not quietly put it back on the site. If it was a draft before
-you edited it, it is a draft after. Use Activate to change that deliberately.</p></div>
+the edit, it is a draft after. Use Activate to change that deliberately.</p></div>
 
 <h3>Deactivating</h3>
 <p>Writes <code>status: "draft"</code> and changes nothing else. On the next build the item
@@ -1430,22 +1479,22 @@ ads are cleaned up by the next regeneration, because <code>sync_ads.py</code> de
 item is gone.</p>
 <div class="cal stop"><b>Delete is permanent from the admin's point of view</b>
 <p>There is no undo button. It is recoverable from git — <code>git revert</code> the commit —
-but that is a developer action, not something the dealer can do. Prefer Deactivate unless you
-are certain.</p></div>
+but that is a developer action, not something the dealer can do. Prefer Deactivate unless the
+removal is certain.</p></div>
 </section>
 
 
 <section id="manage-cats">
 <p class="eyebrow">Chapter 16</p>
 <h2>Manage categories</h2>
-<p class="lead">Adding what you sell next, and retiring what you no longer do, without a
+<p class="lead">Adding a new line of business, and retiring one that has ended, without a
 deploy.</p>
 
 <h3>Creating one</h3>
 <ol class="steps">
 <li><b>Workspace → New category</b></li>
 <li><b>Name it</b>
-<p>The slug is derived as you type — "Winter Storage" becomes <code>winter-storage</code>,
+<p>The slug is derived as the name is typed — "Winter Storage" becomes <code>winter-storage</code>,
 which is the folder and the URL. It is shown under the field so there are no surprises.</p></li>
 <li><b>Heading and blurb</b>
 <p>Both are printed on that category's page. The heading is the big title; the blurb is the
@@ -1477,7 +1526,7 @@ category dropdown, publish it, and it is back. Deleting an <em>empty</em> catego
 its manifest.</p>
 
 <h3>The category dropdown on items</h3>
-<p>Every item has one. Created from inside a category, it is pre-set and you can ignore it.
+<p>Every item has one. Created from inside a category, it is pre-set and needs no attention.
 Created from anywhere else, it is empty and must be chosen before the item can be published.
 It is also how an orphaned item is reassigned.</p>
 <div class="cal stop"><b>The Worker checks the dropdown agrees with the folder</b>
@@ -1490,10 +1539,11 @@ and its location can never drift apart.</p></div>
 <section id="regen">
 <p class="eyebrow">Chapter 17</p>
 <h2>Regenerate ads by hand</h2>
-<p class="lead">When you need to change what is <em>printed on</em> an ad rather than what the
-site says around it.</p>
+<p class="lead">For changing what is <em>printed on</em> an ad rather than what the site says
+around it. Rarely needed now that the admin covers it — see the note at the end of this
+chapter.</p>
 
-<h3>When you need this</h3>
+<h3>When this is needed</h3>
 <div class="scroll"><table>
 <thead><tr><th>Change</th><th>Where</th><th>Then</th></tr></thead>
 <tbody>
@@ -1553,6 +1603,13 @@ JSON
 ./tools/regen.sh development
 python3 build.py</code></pre></div>
 
+<h3>This is now the exception</h3>
+<div class="cal info"><b>Most changes never need this chapter</b>
+<p>Editing a price, a spec or a photo in the admin re-renders that item's ads automatically, and
+promotion re-renders them in the target environment. Reach for <code>regen.sh</code> when
+changing something the admin does not own: the ad layout, the typography, or the contact details
+baked into the generator.</p></div>
+
 <h3>Undoing a regeneration</h3>
 <div class="cw"><pre><code>git checkout development/ads</code></pre></div>
 <p>Use this rather than reverting the manifest and regenerating again — chapter 7 explains why
@@ -1589,8 +1646,8 @@ manifest. Strip them before writing a manifest back.</p>
 <h3><span class="m post">POST</span><code>/api/plan</code></h3>
 <p>Takes a plain-English description and returns validated plan JSON. Calls Anthropic
 server-side with <code>claude-sonnet-5-5</code>; the API key never reaches the browser. Returns
-503 if <code>ANTHROPIC_API_KEY</code> is not set — the rest of the admin keeps working, you just
-have to type the fields yourself.</p>
+503 if <code>ANTHROPIC_API_KEY</code> is not set — the rest of the admin keeps working, with the
+fields typed in by hand.</p>
 <div class="cw"><pre><code>{
   "summary": "one sentence describing the change",
   "fields": {
@@ -1630,6 +1687,33 @@ half-updated and the site rebuilds once.</p>
 <tr><td><code>502</code></td><td>GitHub rejected the commit</td>
 <td>Usually an expired token; rotate it</td></tr>
 </tbody></table></div>
+
+<h3><span class="m post">POST</span><code>/api/promote</code></h3>
+<p>Copies items from one environment to another. Takes no paths — it builds every path itself
+from a validated environment name and a slug, which is why it is not bound by
+<code>ALLOW_PREFIXES</code> (chapters 9 and 20).</p>
+<div class="cw"><pre><code>{
+  "from":  "development",
+  "to":    "review",
+  "slugs": ["santafe", "elantra"]      // omit to promote everything
+}</code></pre></div>
+<p>Responds <code>{ ok, commit, promoted, files, from, to }</code>. It uploads nothing: the new
+tree points at blobs already in the repository. Refusals are listed in chapter 9 and all happen
+before any commit.</p>
+
+<h3><span class="m get">GET</span><code>/api/build</code></h3>
+<p>The most recent workflow run on the branch, so the admin can say whether a change has
+finished rendering rather than leaving someone reloading the public site.</p>
+<div class="cw"><pre><code>{
+  "ok": true,
+  "state": "in_progress",        // queued | in_progress | success | failure | cancelled | none
+  "title": "Add 2018 Honda Civic in development",
+  "url": "https://github.com/…/actions/runs/123",
+  "started": "2026-11-22T10:04:11Z",
+  "sha": "408aa03…"
+}</code></pre></div>
+<p>The admin polls this every 8 seconds after a write, for up to about four minutes, and stops
+as soon as the run settles.</p>
 
 <h3>Auth, precisely</h3>
 <div class="cw"><pre><code>const viaAccess = !!request.headers.get('cf-access-jwt-assertion');
@@ -1692,11 +1776,22 @@ if (!viaAccess &amp;&amp; !viaKey) return json({ error: 'unauthorized' }, 401);<
 <p class="lead">What stops a leaked credential from becoming a compromised website.</p>
 
 <h3>The path allowlist is the real boundary</h3>
-<div class="cw"><pre><code>ALLOW_PREFIXES = "manifests/,source-photos/,development/"</code></pre></div>
-<p>Nothing outside those prefixes can be written. Even with the Worker's GitHub token in hand,
-an attacker cannot reach <code>.github/workflows/</code>, <code>build.py</code>,
-<code>tools/</code> or <code>assets/</code>. They cannot make the site build something you did
-not write — they can only add or change <em>content</em>, which a glance at the diff reveals.</p>
+<div class="cw"><pre><code>ALLOW_PREFIXES = "development/manifests/,development/source-photos/"</code></pre></div>
+<p>Nothing outside those prefixes can be written by <code>POST /write</code>. Even with the
+Worker's GitHub token in hand, an attacker cannot reach <code>.github/workflows/</code>,
+<code>build.py</code>, <code>tools/</code> or <code>assets/</code>. A leaked credential cannot
+make the site build unreviewed code — only add or change <em>content</em> in one environment,
+which a glance at the diff reveals.</p>
+<p>It used to be <code>manifests/,source-photos/,development/</code>, which also permitted
+writes to <code>development/ads/</code> — the generated artwork. The admin never writes an ad,
+so allowing it bought nothing and widened the blast radius.</p>
+
+<div class="cal ok"><b>Promotion made this narrower, not wider</b>
+<p>The obvious way to let the admin reach review and production would have been to add them to
+this list. Instead <code>POST /api/promote</code> takes no caller-supplied paths at all: an
+environment name from a set of three, and slugs matching <code>^[a-z0-9][a-z0-9-]*$</code>.
+Every path is constructed server-side. A narrow validated operation beats a wider prefix
+list.</p></div>
 <div class="cal stop"><b>Do not widen this to add a feature</b>
 <p>If something needs to write outside these prefixes, that is a signal the feature belongs
 somewhere else — in CI, or in a developer's hands. The allowlist is the one thing standing
@@ -1723,7 +1818,7 @@ repository and never shown again.</li>
 <li><code>.dev.vars</code> is gitignored and must stay that way.</li>
 <li>The Anthropic key is used server-side only; the browser never sees it.</li>
 <li><code>WRITE_KEY</code> is optional. If set, make it 32+ random bytes — it is a bearer token
-that can commit to your repository.</li>
+that can commit to the repository.</li>
 </ul>
 
 <div class="cal warn"><b>Two incidents worth remembering</b>
@@ -1731,8 +1826,9 @@ that can commit to your repository.</li>
 is public, so every visitor qualified — an open write endpoint for roughly four minutes until
 it was spotted and fixed. Hence the rule in chapter 12.</p>
 <p><strong>The HAR file.</strong> A browser export pasted into a chat to debug a 401 contained
-live session cookies for an unrelated service. If you ever share a HAR, scrub it, or share the
-single failing request instead. Treat any HAR as a credential dump until proven otherwise.</p></div>
+live session cookies for an unrelated service. A HAR should be scrubbed before sharing, or the
+single failing request shared instead. Treat any HAR as a credential dump until proven
+otherwise.</p></div>
 
 <h3>Routine hygiene</h3>
 <ul>
@@ -1751,8 +1847,23 @@ so the audit trail is already there.</li>
 <div class="scroll"><table>
 <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
 <tbody>
+<tr><td><strong>"Can't read the catalogue"</strong> in the admin</td>
+<td>The listing call failed — usually an expired <code>GITHUB_TOKEN</code></td>
+<td>The screen names the cause and the fix. Products are not lost; this is a read failure.</td></tr>
+<tr><td>Admin shows no products but the site shows them</td>
+<td>Same as above on an older build, where the failure was silent</td>
+<td>Redeploy the Worker, then read the error the admin now shows</td></tr>
 <tr><td>Admin change has no effect</td><td>The Worker was not redeployed</td>
 <td><code>cd admin/worker &amp;&amp; npx wrangler deploy</code></td></tr>
+<tr><td><code>wrangler</code> says <em>Failed to fetch auth token</em></td>
+<td>The stored Cloudflare CLI credential expired</td>
+<td><code>npx wrangler login</code> — it opens a browser once</td></tr>
+<tr><td>Promotion refused with <code>422</code></td>
+<td>A selected item is published with no photo, or its photo is missing</td>
+<td>The message names the item. Nothing was committed.</td></tr>
+<tr><td>Promoted, but the target still looks old</td>
+<td>The re-render has not finished</td>
+<td>The deploy chip tracks it; it links to the run</td></tr>
 <tr><td><em>"Cloudflare sign-in is restricted to members of the account"</em></td>
 <td>No One-time PIN identity provider</td><td>Chapter 12 → the One-time PIN gap</td></tr>
 <tr><td><code>401</code> from <code>/write</code></td><td>Access not configured, or session expired</td>
@@ -1771,7 +1882,7 @@ so the audit trail is already there.</li>
 <td>Settings → Pages → Source: GitHub Actions</td></tr>
 <tr><td>Render step fails at the push</td><td>Actions workflow permissions read-only</td>
 <td>Settings → Actions → General → Read and write</td></tr>
-<tr><td>Regen rewrites ads you did not touch</td><td>The generator's output genuinely moved</td>
+<tr><td>Regen rewrites ads nothing touched</td><td>The generator's output genuinely moved</td>
 <td>Diff <code>tools/output/svg/</code> against <code>&lt;env&gt;/ads/svg/</code>; check
 <code>requirements.txt</code> against <code>tools/.venv/bin/pip freeze</code></td></tr>
 <tr><td>Binary merge conflicts on JPGs</td><td>A local regen raced a CI one</td>
@@ -1848,8 +1959,8 @@ reference for routes and status words. Read it before changing either.</td></tr>
 </tbody></table></div>
 <div class="cal info"><b>Keep them</b>
 <p>They are not clutter — they record why three plausible approaches were not taken, which is
-the expensive knowledge. This book is where to start; they are where to go when you want to
-reopen a decision.</p></div>
+the expensive knowledge. This book is where to start; they are where to go before reopening a
+decision.</p></div>
 </section>
 
 
