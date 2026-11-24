@@ -1246,7 +1246,9 @@ is a manual step, and an easy one to forget after changing the admin UI. An admi
 appears to ignore a committed change has almost always not been redeployed.</p></div>
 
 <h3>Secrets</h3>
-<div class="cw"><pre><code>npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo, Contents: RW
+<div class="cw"><pre><code>npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo:
+                                            #   Contents: Read and write
+                                            #   Actions:  Read   (for the deploy chip)
 npx wrangler secret put ANTHROPIC_API_KEY   # for POST /api/plan
 
 # optional, only if scripts need to call /write from outside Access:

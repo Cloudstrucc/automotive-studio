@@ -28,6 +28,8 @@ BRANCH = "main"
 ALLOW_PREFIXES = "development/manifests/,development/source-photos/"
 
 # Secrets are NOT set here:
-#   wrangler secret put GITHUB_TOKEN      fine-grained PAT, one repo, Contents: RW
+#   wrangler secret put GITHUB_TOKEN      fine-grained PAT, one repo, with
+#                                         Contents: Read and write (manifests, photos)
+#                                         Actions:  Read           (GET /api/build)
 #   wrangler secret put ANTHROPIC_API_KEY for POST /api/plan
 #   wrangler secret put WRITE_KEY         optional; only for scripted calls (see README)

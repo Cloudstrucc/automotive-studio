@@ -266,7 +266,8 @@ function readFailure(env, e) {
       error: 'GitHub refused the request, which almost always means the admin\'s '
            + 'access token has expired or been revoked. The products are safe — '
            + 'this is the admin failing to read them, not the repository losing them.',
-      remedy: 'Issue a new fine-grained token with Contents: read and write on '
+      remedy: 'Issue a new fine-grained token with Contents: read and write, plus '
+              + 'Actions: read, on '
             + `${env.REPO || 'the repository'}, then run: wrangler secret put GITHUB_TOKEN`,
       detail: msg,
     };

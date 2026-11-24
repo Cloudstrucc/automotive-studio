@@ -66,7 +66,9 @@ npx wrangler deploy
 Secrets:
 
 ```bash
-npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo, Contents: RW
+npx wrangler secret put GITHUB_TOKEN        # fine-grained PAT, one repo:
+                                            #   Contents: Read and write
+                                            #   Actions:  Read   (for GET /api/build)
 npx wrangler secret put ANTHROPIC_API_KEY   # for POST /api/plan
 ```
 
