@@ -1189,8 +1189,47 @@ front of it.</p>
 <li>A Cloudflare account (free plan is enough).</li>
 <li>Node.js on the developer machine — only to run <code>npx wrangler</code>. Nothing in the project is
 a Node application.</li>
-<li>Signed in: <code>npx wrangler login</code> opens a browser once and stores the credential.</li>
+<li>Signed in: <code>npx wrangler login</code> opens a browser once and stores the
+credential. It also selects an account, which matters &mdash; see below.</li>
 </ul>
+
+<h3>Which account the Worker lives in</h3>
+<p>A Cloudflare account has exactly one <code>workers.dev</code> subdomain, and this Worker's is
+<code>cloustrucc</code>. The deployed URL therefore identifies the owning account as precisely as
+an account ID would, which is why no account ID is written down here &mdash; this repository is
+public. An administrator holding more than one Cloudflare login can reach the right dashboard and
+the wrong one without noticing the difference.</p>
+<p>Confirm the signed-in account before deploying:</p>
+<div class="cw"><pre><code>npx wrangler whoami   # the signed-in email, and every account it can reach</code></pre></div>
+
+<div class="cal stop"><b>The wrong account does not fail &mdash; it creates a second Worker</b>
+<p><code>wrangler deploy</code> takes the Worker name from <code>wrangler.toml</code> and creates
+it wherever it is pointed. Running it while signed into another account produces a
+<em>new</em> <code>autoline-write</code> on that account's subdomain: no error, a success message,
+a plausible URL, and neither the Access policy nor the secrets in front of it. The real Worker
+goes on serving the old code, so the symptom is a deploy that looks successful and changes
+nothing &mdash; and a second, unprotected copy of the admin UI served publicly until it is
+deleted.</p>
+<p>Two checks catch it: the printed URL must carry the <code>cloustrucc</code> subdomain, and
+<code>npx wrangler deployments list</code> must show the new version ID against the intended
+Worker. Where the account picker offers a choice, the pre-selected entry is not necessarily the
+right one. A stray copy is removed with
+<code>npx wrangler delete --name autoline-write</code>, run with
+<code>CLOUDFLARE_ACCOUNT_ID</code> set to the account holding it.</p></div>
+
+<div class="cal info"><b>A scoped API token removes the ambiguity</b>
+<p>An OAuth login reuses whatever Cloudflare session the browser already holds, so
+<code>wrangler logout</code> followed by <code>wrangler login</code> is an unreliable way to
+change accounts: the second login can silently return the first account. A scoped API token
+cannot drift, because it belongs to one account &mdash; a token from the wrong account fails
+outright instead of deploying somewhere unintended. Create one under <b>My Profile &rarr; API
+Tokens</b> with the <em>Edit Cloudflare Workers</em> template, then:</p>
+<div class="cw"><pre><code>read -rs "CLOUDFLARE_API_TOKEN?Cloudflare API token: "
+export CLOUDFLARE_API_TOKEN
+npx wrangler deploy</code></pre></div>
+<p>In zsh the prompt belongs inside the variable spec; <code>read -p</code> reads from a
+coprocess instead. <code>read -rs</code> keeps the token off the screen and out of the shell
+history.</p></div>
 
 <h3>Deploy</h3>
 <div class="cw"><pre><code>cd admin/worker
@@ -1260,6 +1299,20 @@ publish.</p>
 visitor is same-origin — that was an open write endpoint for anyone who found the URL. It was
 fixed within minutes, and the lesson is worth keeping: being served by the same host proves
 nothing about who is asking.</p></div>
+
+<h3>Finding the Zero Trust team domain</h3>
+<p>The Access login hostname is deliberately not recorded in this guide, because the repository
+is public. The Worker emits it on any unauthenticated request, so it can be read back whenever it
+is needed:</p>
+<div class="cw"><pre><code>curl -sI https://autoline-write.cloustrucc.workers.dev/ | grep -i location</code></pre></div>
+<p>The <code>location</code> header names the <code>&lt;team&gt;.cloudflareaccess.com</code> host
+that fronts the admin, and that team is the Zero Trust account to administer.</p>
+<div class="cal ok"><b>This is also the fastest check that Access is actually in front</b>
+<p>A <code>302</code> to <code>cloudflareaccess.com</code> proves the gate is engaged. A
+<code>200</code> proves it is not: the page is being served to anonymous visitors, which is the
+signature of a Worker deployed to an account that has no Access policy &mdash; see chapter 11.
+Writes still fail closed in that state, so the exposure is the UI, not the ability to publish,
+but it should be corrected rather than tolerated.</p></div>
 
 <h3>Setting the policy up</h3>
 <ol class="steps">
@@ -1855,6 +1908,12 @@ so the audit trail is already there.</li>
 <td>Redeploy the Worker, then read the error the admin now shows</td></tr>
 <tr><td>Admin change has no effect</td><td>The Worker was not redeployed</td>
 <td><code>cd admin/worker &amp;&amp; npx wrangler deploy</code></td></tr>
+<tr><td>Deploy reported success, but the admin is unchanged</td>
+<td>It was deployed to the wrong Cloudflare account, creating a second Worker there</td>
+<td>The printed URL must carry the <code>cloustrucc</code> subdomain. See chapter 11.</td></tr>
+<tr><td>The admin page loads without asking anyone to sign in</td>
+<td>No Access policy in front of that hostname &mdash; usually a stray Worker on another account</td>
+<td><code>curl -sI &lt;url&gt;</code> should return <code>302</code>, not <code>200</code>. See chapter 12.</td></tr>
 <tr><td><code>wrangler</code> says <em>Failed to fetch auth token</em></td>
 <td>The stored Cloudflare CLI credential expired</td>
 <td><code>npx wrangler login</code> — it opens a browser once</td></tr>
